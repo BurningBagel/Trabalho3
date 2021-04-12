@@ -5,6 +5,7 @@ typedef struct simbolo{				//elemento da tabela de simbolos. Contém ponteiros p
 	char *valor;
 	int tipo;
 	int tamanhoValor;
+	int escopo;
 	} simbolo;
 	
 
@@ -17,4 +18,5 @@ typedef struct no{						//Elemento da árvore sintática! Contém um vetor de fi
 	simbolo* refereTabela;		//Para uso futuro, caso o nó contenha referência a um ID, guardamos um ponteiro para onde ele se localiza na tabela de símbolos
 	char *valor;				//Contém o valor associado ao item abaixo, caso exista. Para números, contém o número em string. Para IDs, contém o nome do ID, etc.
 	char *nome;					//Contém uma string que identifica qual específica transição da variável foi usada para gerar este nó.
+	int escopo;
 } no;		

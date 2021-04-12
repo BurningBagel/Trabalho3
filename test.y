@@ -22,7 +22,7 @@ int yylex(void);
 simbolo* tabelaSimbolos;
 simbolo* topo;
 	
-simbolo* CriarSimbolo(char* nome, int tipo, char* valor){
+simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
 	if(tabelaSimbolos == NULL){
 		tabelaSimbolos = topo = ancora;
@@ -43,6 +43,7 @@ simbolo* CriarSimbolo(char* nome, int tipo, char* valor){
 		(*ancora).tamanhoValor = 0;
 	} 
 	(*ancora).nome = strdup(nome);
+	(*ancora).escopo = escopo;
 	topo = ancora;
 	return ancora;
 }
@@ -226,7 +227,10 @@ void EscreverArvore(no* argumento,int profund){
 %%
 
 inicio:
-		statement								{raiz = $1;}
+		statement								{
+													raiz = $1;
+													(*raiz).escopo = 1;
+												}
 	;
 
 
@@ -238,6 +242,8 @@ statement:
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
+													(*(no)$1).escopo = (*ancora).escopo;
+													(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 2;
 													char ancora2[] = "single_line_statement";
 													(*ancora).nome = strdup(ancora2);
