@@ -22,7 +22,7 @@ int yylex(void);
 simbolo* tabelaSimbolos;
 simbolo* topo;
 	
-simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
+simbolo* CriarSimbolo(char* nome, int tipo, char* valor){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
 	if(tabelaSimbolos == NULL){
 		tabelaSimbolos = topo = ancora;
@@ -43,7 +43,7 @@ simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 		(*ancora).tamanhoValor = 0;
 	} 
 	(*ancora).nome = strdup(nome);
-	(*ancora).escopo = escopo;
+	//(*ancora).escopo = escopo;
 	topo = ancora;
 	return ancora;
 }
@@ -126,6 +126,27 @@ void EscreverArvore(no* argumento,int profund){
 	}
 	
 	ApagarNo(argumento);
+}
+
+no* ProcurarArvore(int tipo,char* nome, no* base){
+	int i;
+	no* ancora;
+	if(!strcmp((*base).nome,nome) && (*base).tipo == tipo){
+		return base;
+	}
+	else if((*base).numFilhos > 0){
+		for(i = 0;i < (*base).numFilhos;i++){
+			ancora = ProcurarArvore(tipo,nome,(*base).filhos[i]);
+			if(ancora != NULL){
+				return ancora;
+			}
+		}
+	}
+	return NULL;
+}
+
+void PreencherEscopo(no* base, int escopo){
+
 }
 
 %}
@@ -229,7 +250,7 @@ void EscreverArvore(no* argumento,int profund){
 inicio:
 		statement								{
 													raiz = $1;
-													(*raiz).escopo = 1;
+													//(*raiz).escopo = 1;
 												}
 	;
 
@@ -242,8 +263,8 @@ statement:
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
-													(*(no)$1).escopo = (*ancora).escopo;
-													(*(no*)$2).escopo = (*ancora).escopo;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 2;
 													char ancora2[] = "single_line_statement";
 													(*ancora).nome = strdup(ancora2);
@@ -257,6 +278,8 @@ statement:
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 2;
 													char ancora2[] = "function_declaration";
 													(*ancora).nome = strdup(ancora2);
@@ -285,6 +308,8 @@ statement:
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 2;
 													char ancora2[] = "for";
 													(*ancora).nome = strdup(ancora2);
@@ -297,6 +322,8 @@ statement:
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 2;
 													char ancora2[] = "if";
 													(*ancora).nome = strdup(ancora2);
@@ -311,6 +338,8 @@ statement:
 													(*ancora).numFilhos = 2;
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).tipo = YYSYMBOL_statement;
 													char ancora2[] = "iteracao";
 													(*ancora).nome = strdup(ancora2);
@@ -323,6 +352,8 @@ statement:
 													(*ancora).filhos[0] = $1;
 													(*ancora).filhos[1] = $3;
 													(*ancora).numFilhos = 2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$3).escopo = (*ancora).escopo;
 													char ancora2[] = "variable_declaration";
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).tipo = YYSYMBOL_statement;
@@ -440,6 +471,7 @@ single_line_statement:
 		return SEMICOLON			 			{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "return";
 													(*ancora).nome = strdup(ancora2);
@@ -453,6 +485,7 @@ single_line_statement:
 	|	assignment SEMICOLON 					{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "assignment";
 													(*ancora).nome = strdup(ancora2);
@@ -466,6 +499,7 @@ single_line_statement:
 	|	write SEMICOLON		 					{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "write";
 													(*ancora).nome = strdup(ancora2);
@@ -479,6 +513,7 @@ single_line_statement:
 	|	writeln SEMICOLON	 					{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "writeln";
 													(*ancora).nome = strdup(ancora2);
@@ -492,6 +527,7 @@ single_line_statement:
 	|	read SEMICOLON		 					{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "read";
 													(*ancora).nome = strdup(ancora2);
@@ -517,6 +553,7 @@ single_line_statement:
 	|	conjuntoop 	SEMICOLON		 			{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $1;
+													//(*(no*)$1).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
 													char ancora2[] = "conjuntoop";
 													(*ancora).nome = strdup(ancora2);
@@ -533,6 +570,7 @@ single_line_statement:
 comparg:
 		ID										{
 													no* ancora = (no*)malloc(sizeof(no));
+													$$ = ancora;
 													(*ancora).tipo = YYSYMBOL_comparg;
 													(*ancora).numFilhos = 0;
 													(*ancora).valor = strdup($1);
@@ -545,7 +583,7 @@ comparg:
 													else{
 														(*ancora).refereTabela = CriarSimbolo($1,0,NULL);//Não temos como saber aqui qual o tipo desse ID, então criamos ele sem isso tbm
 													}
-													$$ = ancora;
+													
 													free($1);
 
 													
