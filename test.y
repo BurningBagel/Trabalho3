@@ -411,7 +411,7 @@ statement:
 												} 
 		statement CLOSECURLY 					{
 													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).filhos[0] = $1;
+													(*ancora).filhos[0] = $3;
 													//(*(no*)$1).escopo = (*ancora).escopo;
 													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
@@ -422,7 +422,7 @@ statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													// $ 3 = NULL;
-													$2 = NULL;
+													$4 = NULL;
 													Pop(pilhaEscopo);
 												}
 		
@@ -1052,8 +1052,7 @@ return:
 	;
 
 for:
-		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR OPENCURLY 
-																												{
+		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR OPENCURLY 					{
 																													escopoCounter++;
 																													Push(pilhaEscopo,CriarStack(escopoCounter));
 																													$1 = NULL;
@@ -1066,7 +1065,7 @@ for:
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
 																													(*ancora).filhos[2] = $7;
-																													$$ = ancora;
+																													//$ $ = ancora;
 																													(*ancora).numFilhos = 4;
 																													(*ancora).tipo = YYSYMBOL_for;
 																													char ancora2[] = "for";
@@ -1076,8 +1075,9 @@ for:
 																												} 
 			statement CLOSECURLY																				{
 																													
-																													((no)$$).filhos[3] = $1;
-																													$2 = NULL;
+																													(*ancora).filhos[3] = $11;
+																													$12 = NULL;
+																													$$ = ancora;
 																													Pop(pilhaEscopo);
 																												}
 	;
