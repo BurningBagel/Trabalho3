@@ -1089,6 +1089,9 @@ if:
 																											{
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
+																												
+																											} 
+		statement CLOSECURLY else																			{
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = $3;
 																												$1 = NULL;
@@ -1101,9 +1104,6 @@ if:
 																												(*ancora).valor = NULL;
 																												(*ancora).numFilhos = 3;
 																												(*ancora).tipo = YYSYMBOL_if;
-																											} 
-		statement CLOSECURLY else																			{
-																												
 																												(*ancora).filhos[1] = $7;
 																												(*ancora).filhos[2] = $9;
 																												$8 = NULL;
@@ -1421,7 +1421,10 @@ iteracao:
 																			{
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
-																				$1 = NULL;
+																				
+																			}
+		 statement CLOSECURLY												{
+		 																		$1 = NULL;
 																				$2 = NULL;
 																				$4 = NULL;
 																				$5 = NULL;
@@ -1433,8 +1436,6 @@ iteracao:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
-																			}
-		 statement CLOSECURLY												{
 																				(*ancora).filhos[1] = $7;
 																				$8 = NULL;
 																				Pop(pilhaEscopo);
@@ -1608,6 +1609,8 @@ function_declaration:
 																			{
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
+																			}
+		statement CLOSECURLY 												{
 																				$3 = NULL;
 																				$5 = NULL;
 																				$6 = NULL;
@@ -1629,8 +1632,6 @@ function_declaration:
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
-																			}
-		statement CLOSECURLY 												{
 																				(*ancora).filhos[2] = $8;
 																				$9 = NULL;
 																				Pop(pilhaEscopo);
