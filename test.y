@@ -1052,7 +1052,7 @@ return:
 	;
 
 for:
-		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR OPENCURLY 					{
+		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR  								{
 																													escopoCounter++;
 																													Push(pilhaEscopo,CriarStack(escopoCounter));
 																													$1 = NULL;
@@ -1065,9 +1065,6 @@ for:
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
 																													(*ancora).filhos[2] = $7;
-																													(*ancora).filhos[3] = $11;
-																													$12 = NULL;
-																													$$ = ancora;
 																													//$ $ = ancora;
 																													(*ancora).numFilhos = 4;
 																													(*ancora).tipo = YYSYMBOL_for;
@@ -1076,7 +1073,11 @@ for:
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
 																												} 
-			statement CLOSECURLY																				{
+			OPENCURLY statement CLOSECURLY																				{
+																													
+																													(*ancora).filhos[3] = $11;
+																													$12 = NULL;
+																													$$ = ancora;
 																													Pop(pilhaEscopo);
 																												}
 	;
