@@ -403,12 +403,15 @@ statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 												}
-	|	OPENCURLY {
-			escopoCounter++;
-			Push(pilhaEscopo,CriarStack(escopoCounter));
-		} statement CLOSECURLY 			{
+	|	OPENCURLY 
+												{
+													escopoCounter++;
+													Push(pilhaEscopo,CriarStack(escopoCounter));
+													$1 = NULL;
+												} 
+		statement CLOSECURLY 					{
 													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).filhos[0] = $2;
+													(*ancora).filhos[0] = $1;
 													//(*(no*)$1).escopo = (*ancora).escopo;
 													//(*(no*)$2).escopo = (*ancora).escopo;
 													(*ancora).numFilhos = 1;
@@ -418,8 +421,8 @@ statement:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													$$ = ancora;
-													$1 = NULL;
-													$3 = NULL;
+													// $ 3 = NULL;
+													$2 = NULL;
 													Pop(pilhaEscopo);
 												}
 		
@@ -1053,27 +1056,28 @@ for:
 																												{
 																													escopoCounter++;
 																													Push(pilhaEscopo,CriarStack(escopoCounter));
-																												} 
-			statement CLOSECURLY																				{
-																													no* ancora = (no*)malloc(sizeof(no));
-																													(*ancora).filhos[0] = $3;
-																													(*ancora).filhos[1] = $5;
-																													(*ancora).filhos[2] = $7;
-																													(*ancora).filhos[3] = $10;
-																													(*ancora).numFilhos = 4;
-																													(*ancora).tipo = YYSYMBOL_for;
-																													char ancora2[] = "for";
-																													(*ancora).nome = strdup(ancora2);
-																													(*ancora).refereTabela = NULL;
-																													(*ancora).valor = NULL;
-																													$$ = ancora;
 																													$1 = NULL;
 																													$2 = NULL;
 																													$4 = NULL;
 																													$6 = NULL;
 																													$8 = NULL;
 																													$9 = NULL;
-																													$11 = NULL;
+																													no* ancora = (no*)malloc(sizeof(no));
+																													(*ancora).filhos[0] = $3;
+																													(*ancora).filhos[1] = $5;
+																													(*ancora).filhos[2] = $7;
+																													$$ = ancora;
+																													(*ancora).numFilhos = 4;
+																													(*ancora).tipo = YYSYMBOL_for;
+																													char ancora2[] = "for";
+																													(*ancora).nome = strdup(ancora2);
+																													(*ancora).refereTabela = NULL;
+																													(*ancora).valor = NULL;
+																												} 
+			statement CLOSECURLY																				{
+																													
+																													((no)$$).filhos[3] = $1;
+																													$2 = NULL;
 																													Pop(pilhaEscopo);
 																												}
 	;
@@ -1084,24 +1088,25 @@ if:
 																											{
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
-																											} 
-		statement CLOSECURLY else																			{
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = $3;
-																												(*ancora).filhos[1] = $6;
-																												(*ancora).filhos[2] = $8;
-																												(*ancora).numFilhos = 3;
-																												(*ancora).tipo = YYSYMBOL_if;
-																												char ancora2[] = "if";
-																												(*ancora).nome = strdup(ancora2);
-																												(*ancora).refereTabela = NULL;
-																												(*ancora).valor = NULL;
-																												$$ = ancora;
 																												$1 = NULL;
 																												$2 = NULL;
 																												$4 = NULL;
 																												$5 = NULL;
-																												$7 = NULL;
+																												$$ = ancora;
+																												char ancora2[] = "if";
+																												(*ancora).nome = strdup(ancora2);
+																												(*ancora).refereTabela = NULL;
+																												(*ancora).valor = NULL;
+																												(*ancora).numFilhos = 3;
+																												(*ancora).tipo = YYSYMBOL_if;
+																											} 
+		statement CLOSECURLY else																			{
+																												
+																												((no)$$).filhos[1] = $1;
+																												((no)$$).filhos[2] = $3;
+																												$2 = NULL;
 																												Pop(pilhaEscopo);
 																											}
 	|  IF OPENPAR comparison CLOSEPAR single_line_statement else											{
@@ -1151,6 +1156,8 @@ else:
 													{
 														escopoCounter++;
 														Push(pilhaEscopo,CriarStack(escopoCounter));
+														$1 = NULL;
+														$2 = NULL;
 													}
 		statement CLOSECURLY						{
 														no* ancora = (no*)malloc(sizeof(no));
@@ -1162,9 +1169,7 @@ else:
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
 														$$ = ancora;
-														$1 = NULL;
 														$2 = NULL;
-														$4 = NULL;
 														Pop(pilhaEscopo);
 													}
 |	%empty											{
@@ -1416,23 +1421,24 @@ iteracao:
 																			{
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
-																			}
-		 statement CLOSECURLY												{
+																				$1 = NULL;
+																				$2 = NULL;
+																				$4 = NULL;
+																				$5 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 2;
 																				(*ancora).filhos[0] = $3;
-																				(*ancora).filhos[1] = $6;
+																				
 																				(*ancora).tipo = YYSYMBOL_iteracao;
 																				char ancora2[] = "bracket";
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
 																				$$ = ancora;
-																				$1 = NULL;
+																			}
+		 statement CLOSECURLY												{
+																				((no)$$).filhos[1] = $1;
 																				$2 = NULL;
-																				$4 = NULL;
-																				$5 = NULL;
-																				$7 = NULL;
 																				Pop(pilhaEscopo);
 																			}
 	|	FORALL OPENPAR pertinencia CLOSEPAR single_line_statement 				{
@@ -1603,13 +1609,14 @@ function_declaration:
 																			{
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
-																			}
-		statement CLOSECURLY 												{
+																				$3 = NULL;
+																				$5 = NULL;
+																				$6 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = $1;
 																				(*ancora).filhos[1] = $4;
-																				(*ancora).filhos[2] = $7;
+																				
 																				(*ancora).tipo = YYSYMBOL_function_declaration;
 																				char ancora2[] = "function_declaration";
 																				(*ancora).nome = strdup(ancora2);
@@ -1623,11 +1630,11 @@ function_declaration:
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
-																				$3 = NULL;
-																				$5 = NULL;
-																				$6 = NULL;
-																				$8 = NULL;
 																				$$ = ancora;
+																			}
+		statement CLOSECURLY 												{
+																				((no)$$).filhos[2] = $1;
+																				$2 = NULL;
 																				Pop(pilhaEscopo);
 																			}
 	;
