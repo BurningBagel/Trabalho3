@@ -94,16 +94,16 @@ void EscreverTabela(){
 	while(ancora != NULL){
 		printf("%s|",(*ancora).nome);
 		if((*ancora).tipo == NUM_TABLE){
-			printf("variavel de numero|Escopo: %d\n");
+			printf("variavel de numero|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == FUNC_TABLE){
-			printf("funcao|Escopo: %d\n");
+			printf("funcao|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == SET_TABLE){
-			printf("variavel de set|Escopo: %d\n");
+			printf("variavel de set|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == ELEM_TABLE){
-			printf("variavel polimorfica|Escopo: %d\n");
+			printf("variavel polimorfica|Escopo: %d\n",(*ancora).escopo);
 		}
 		else{
 			printf("Constante\n");
@@ -1072,12 +1072,13 @@ for:
 																													(*ancora).nome = strdup(ancora2);
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
+																													$$ = ancora;
 																												} 
 			statement CLOSECURLY																				{
 																													
-																													(*ancora).filhos[3] = $11;
+																													((no)$$).filhos[3] = $11;
 																													$12 = NULL;
-																													$$ = ancora;
+																													
 																													Pop(pilhaEscopo);
 																												}
 	;

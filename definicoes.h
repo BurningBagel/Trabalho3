@@ -23,7 +23,7 @@ typedef struct no{						//Elemento da árvore sintática! Contém um vetor de fi
 
 
 typedef struct pilha{
-	struct pilha* proximo;
+	struct pilha* seguinte;
 	struct pilha* anterior;
 	int valor;
 } pilha;
