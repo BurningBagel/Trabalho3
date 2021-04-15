@@ -1061,6 +1061,9 @@ for:
 																													$6 = NULL;
 																													$8 = NULL;
 																													
+																													
+																												} 
+			OPENCURLY statement CLOSECURLY																		{
 																													no* ancora = (no*)malloc(sizeof(no));
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
@@ -1072,9 +1075,6 @@ for:
 																													(*ancora).nome = strdup(ancora2);
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
-																												} 
-			OPENCURLY statement CLOSECURLY																				{
-																													
 																													(*ancora).filhos[3] = $11;
 																													$12 = NULL;
 																													$10 = NULL;
