@@ -1630,7 +1630,7 @@ function_declaration:
 																				free($2);
 																			}
 		statement CLOSECURLY 												{
-																				(*ancora).filhos[2] = $1;
+																				(*ancora).filhos[2] = $8;
 																				$9 = NULL;
 																				Pop(pilhaEscopo);
 																				$$ = ancora;
