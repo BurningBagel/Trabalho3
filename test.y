@@ -19,10 +19,12 @@ int yylex(void);
 #define SET_TABLE 8
 
 
+
+
 simbolo* tabelaSimbolos;
 simbolo* topo;
 	
-simbolo* CriarSimbolo(char* nome, int tipo, char* valor){
+simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
 	if(tabelaSimbolos == NULL){
 		tabelaSimbolos = topo = ancora;
@@ -43,7 +45,7 @@ simbolo* CriarSimbolo(char* nome, int tipo, char* valor){
 		(*ancora).tamanhoValor = 0;
 	} 
 	(*ancora).nome = strdup(nome);
-	//(*ancora).escopo = escopo;
+	(*ancora).escopo = escopo;
 	topo = ancora;
 	return ancora;
 }
@@ -81,6 +83,8 @@ simbolo* ProcurarTabela(char* alvo){
 
 no* raiz;
 
+int escopoCounter;
+pilha* pilhaEscopo;
 
 
 void EscreverTabela(){
@@ -90,16 +94,16 @@ void EscreverTabela(){
 	while(ancora != NULL){
 		printf("%s|",(*ancora).nome);
 		if((*ancora).tipo == NUM_TABLE){
-			printf("variavel de numero\n");
+			printf("variavel de numero|Escopo: %d\n");
 		}
 		else if((*ancora).tipo == FUNC_TABLE){
-			printf("funcao\n");
+			printf("funcao|Escopo: %d\n");
 		}
 		else if((*ancora).tipo == SET_TABLE){
-			printf("variavel de set\n");
+			printf("variavel de set|Escopo: %d\n");
 		}
 		else if((*ancora).tipo == ELEM_TABLE){
-			printf("variavel polimorfica\n");
+			printf("variavel polimorfica|Escopo: %d\n");
 		}
 		else{
 			printf("Constante\n");
@@ -145,9 +149,117 @@ no* ProcurarArvore(int tipo,char* nome, no* base){
 	return NULL;
 }
 
-void PreencherEscopo(no* base, int escopo){
 
+int Top(pilha* stack){
+	pilha* ancora = stack;
+	while((*ancora).seguinte != NULL){
+		ancora = (*ancora).seguinte;
+	}
+	return (*ancora).valor;
 }
+
+void Pop(pilha* stack){
+	pilha* ancora = stack;
+	pilha* ancora2;
+	while((*ancora).seguinte != NULL){
+		ancora = (*ancora).seguinte;
+	}
+	ancora2 = (*ancora).anterior;
+	(*ancora2).seguinte = NULL;
+	free(ancora);
+}
+
+void Push(pilha* stack, pilha* argumento){
+	pilha* ancora = stack;
+	while((*ancora).seguinte != NULL){
+		ancora = (*ancora).seguinte;
+	}
+	(*argumento).anterior = ancora;
+	(*ancora).seguinte = argumento;
+}
+
+pilha* CriarStack(int valor){
+	pilha* ancora = (pilha*)malloc(sizeof(pilha));
+
+	(*ancora).valor = valor;
+	(*ancora).seguinte = NULL;
+	(*ancora).anterior = NULL;
+	return ancora;
+}
+
+void LimparStack(pilha* stack){
+	pilha* ancora = stack;
+	pilha* ancora2;
+
+	while(ancora != NULL){
+		ancora2 = ancora;
+		ancora = (*ancora).seguinte;
+		free(ancora2);
+	}
+}
+
+/*
+void PreencherEscopo(no* base, int escopo){
+	int i;
+	no* ancora;
+	simbolo* ancora = (*base).refereTabela;
+	if((*base).tipo == YYSYMBOL_function_declaration || (*base).tipo == YYSYMBOL_variable_declaration) (*ancora).escopo = escopo; //Escopo é decidido na declaração
+	if((*base).numFilhos > 0){
+			switch((*base).tipo){
+				case YYSYMBOL_statement:
+					if(!strcmp((*base).nome,"curly")){
+						PreencherEscopo((*base).filhos[0],escopo+1);
+					}
+					else {
+						PreencherEscopo((*base).filhos[0],escopo);
+						PreencherEscopo((*base).filhos[1],escopo);
+					} 
+				break;
+
+				case YYSYMBOL_single_line_statement:
+					PreencherEscopo((*base).filhos[0],escopo);
+				break;
+
+				case YYSYMBOL_comparg:
+					PreencherEscopo((*base).filhos[0],escopo);
+				break;
+
+				case YYSYMBOL_comparison:
+					PreencherEscopo((*base).filhos[0],escopo);
+					if(strcmp((*base).nome,"not")){
+						PreencherEscopo((*base).filhos[1],escopo);
+					}
+				break;
+
+				case YYSYMBOL_write:
+					PreencherEscopo((*base).filhos[0],escopo);
+				break;
+
+				case YYSYMBOL_writeln:
+					PreencherEscopo((*base).filhos[0],escopo);
+				break;
+
+				case YYSYMBOL_return:
+					PreencherEscopo((*base).filhos[0],escopo);
+				break;
+
+				case YYSYMBOL_for:
+					PreencherEscopo((*base).filhos[0],escopo);
+					PreencherEscopo((*base).filhos[1],escopo);
+					PreencherEscopo((*base).filhos[2],escopo);
+					PreencherEscopo((*base).filhos[3],escopo+1);
+				break;
+
+				case YYSYMBOL_if:
+					PreencherEscopo((*base).filhos[0],escopo);
+					PreencherEscopo((*base).filhos[2],escopo+1);
+					if(!strcmp((*base).nome,""))
+				break;
+			}
+	}
+}
+
+*/
 
 %}
 
@@ -246,6 +358,24 @@ void PreencherEscopo(no* base, int escopo){
 %destructor {$$ = NULL;} <*>
 
 %%
+/*
+int VerificaReturn(no* curr){
+	if(curr->tipo == RETURN){
+		return TRUE;
+	}
+	else{
+		if(curr->numFilhos > 0){
+			for filho in Filhos{
+				if(VerificaReturn(filho)){
+					return TRUE;
+				}
+			}
+		}
+		return FALSE;
+	}
+}
+*/
+
 
 inicio:
 		statement								{
@@ -272,6 +402,25 @@ statement:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													$$ = ancora;
+												}
+	|	OPENCURLY {
+			escopoCounter++;
+			Push(pilhaEscopo,CriarStack(escopoCounter));
+		} statement CLOSECURLY 			{
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).filhos[0] = $2;
+													//(*(no*)$1).escopo = (*ancora).escopo;
+													//(*(no*)$2).escopo = (*ancora).escopo;
+													(*ancora).numFilhos = 1;
+													char ancora2[] = "curly";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).tipo = YYSYMBOL_statement;
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													$$ = ancora;
+													$1 = NULL;
+													$3 = NULL;
+													Pop(pilhaEscopo);
 												}
 		
 	|	function_declaration statement 			{
@@ -332,7 +481,6 @@ statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 												}
-
 	|	iteracao statement 						{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -465,6 +613,7 @@ statement:
 													$$ = ancora;
 												}
 	;
+	}
 
 
 single_line_statement:
@@ -581,7 +730,8 @@ comparg:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														(*ancora).refereTabela = CriarSimbolo($1,0,NULL);//Não temos como saber aqui qual o tipo desse ID, então criamos ele sem isso tbm
+														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL,escopoCounter); Tirei essa linha pq é hora de acusar erros semânticos! Se acharmos um ID que não foi declarado, temos q dar erro!
+														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 													}
 													
 													free($1);
@@ -757,7 +907,9 @@ read:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$3);
+
 													}
 													$$ = ancora;
 													(*ancora).valor = strdup($3);
@@ -897,7 +1049,12 @@ return:
 	;
 
 for:
-		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR OPENCURLY statement CLOSECURLY{
+		FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR OPENCURLY 
+																												{
+																													escopoCounter++;
+																													Push(pilhaEscopo,CriarStack(escopoCounter));
+																												} 
+			statement CLOSECURLY																				{
 																													no* ancora = (no*)malloc(sizeof(no));
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
@@ -917,12 +1074,18 @@ for:
 																													$8 = NULL;
 																													$9 = NULL;
 																													$11 = NULL;
+																													Pop(pilhaEscopo);
 																												}
 	;
 
 if:
 		
-	IF OPENPAR comparison CLOSEPAR OPENCURLY statement CLOSECURLY else										{
+	IF OPENPAR comparison CLOSEPAR OPENCURLY 
+																											{
+																												escopoCounter++;
+																												Push(pilhaEscopo,CriarStack(escopoCounter));
+																											} 
+		statement CLOSECURLY else																			{
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = $3;
 																												(*ancora).filhos[1] = $6;
@@ -939,6 +1102,7 @@ if:
 																												$4 = NULL;
 																												$5 = NULL;
 																												$7 = NULL;
+																												Pop(pilhaEscopo);
 																											}
 	|  IF OPENPAR comparison CLOSEPAR single_line_statement else											{
 																												no* ancora = (no*)malloc(sizeof(no));
@@ -983,7 +1147,12 @@ else:
 														$$ = ancora;
 														$1 = NULL;
 													}
-|	ELSE OPENCURLY statement CLOSECURLY				{
+|	ELSE OPENCURLY
+													{
+														escopoCounter++;
+														Push(pilhaEscopo,CriarStack(escopoCounter));
+													}
+		statement CLOSECURLY						{
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = $3;
 														(*ancora).numFilhos = 1;
@@ -996,6 +1165,7 @@ else:
 														$1 = NULL;
 														$2 = NULL;
 														$4 = NULL;
+														Pop(pilhaEscopo);
 													}
 |	%empty											{
 														no* ancora = (no*)malloc(sizeof(no));
@@ -1134,7 +1304,8 @@ conjuntoop1:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 													}
 													(*ancora).valor = strdup($1);
 													free($1);
@@ -1241,7 +1412,12 @@ selecao:
 	;
 
 iteracao:
-		FORALL OPENPAR pertinencia CLOSEPAR OPENCURLY statement CLOSECURLY	{
+		FORALL OPENPAR pertinencia CLOSEPAR OPENCURLY
+																			{
+																				escopoCounter++;
+																				Push(pilhaEscopo,CriarStack(escopoCounter));
+																			}
+		 statement CLOSECURLY												{
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 2;
 																				(*ancora).filhos[0] = $3;
@@ -1257,6 +1433,7 @@ iteracao:
 																				$4 = NULL;
 																				$5 = NULL;
 																				$7 = NULL;
+																				Pop(pilhaEscopo);
 																			}
 	|	FORALL OPENPAR pertinencia CLOSEPAR single_line_statement 				{
 																				no* ancora = (no*)malloc(sizeof(no));
@@ -1289,7 +1466,8 @@ function_call:
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
+																					//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
+																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 																				}
 																				$$ = ancora;
 																				$1 = NULL;
@@ -1318,7 +1496,9 @@ args:
 								(*ancora).refereTabela = ancoraSimb;
 							}
 							else{
-								(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
+								//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
+								printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+
 							}
 							(*ancora).valor = strdup($1);
 							free($1);
@@ -1376,7 +1556,8 @@ funcargs:
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
+										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
+										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$2);
 									}
 									(*ancora).valor = strdup($2);
 									free($2);
@@ -1396,7 +1577,8 @@ funcargs:
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
+										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
+										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$2);
 									}
 									(*ancora).valor = strdup($2);
 									free($2);
@@ -1417,7 +1599,12 @@ funcargs:
 	
 
 function_declaration:
-		type ID OPENPAR funcargs CLOSEPAR OPENCURLY statement CLOSECURLY 	{
+		type ID OPENPAR funcargs CLOSEPAR OPENCURLY 
+																			{
+																				escopoCounter++;
+																				Push(pilhaEscopo,CriarStack(escopoCounter));
+																			}
+		statement CLOSECURLY 												{
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = $1;
@@ -1432,7 +1619,7 @@ function_declaration:
 																					(*ancoraSimb).tipo = FUNC_TABLE;
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo($2,FUNC_TABLE,NULL);
+																					(*ancora).refereTabela = CriarSimbolo($2,FUNC_TABLE,NULL,escopoCounter);
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
@@ -1441,6 +1628,7 @@ function_declaration:
 																				$6 = NULL;
 																				$8 = NULL;
 																				$$ = ancora;
+																				Pop(pilhaEscopo);
 																			}
 	;
 	
@@ -1458,7 +1646,8 @@ assignment:
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+																					//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 																				}
 																				(*ancora).valor = strdup($1);
 																				free($1);
@@ -1481,7 +1670,7 @@ variable_declaration:
 																				(*ancoraSimb).tipo = atoi(((no*)$1)->valor);
 																			}
 																			else{
-																				(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL);
+																				(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
 																			}
 																			(*ancora).valor = strdup($2);
 																			free($2);
@@ -1613,7 +1802,8 @@ matharg:
 											(*ancora).refereTabela = ancoraSimb;
 										}
 										else{
-											(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+											//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
+											printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 										}
 										(*ancora).valor = strdup($1);
 										free($1);
@@ -1726,6 +1916,8 @@ int main(int argc, char **argv){
 	//variavelRaiz = TRUE;
 	++argv;
 	--argc;//pula o nome do programa
+	escopoCounter = 0;
+	pilhaEscopo = CriarStack(0);
 	if (argc > 0){
 		yyin = fopen(argv[0],"r");
 	}
@@ -1738,6 +1930,7 @@ int main(int argc, char **argv){
 	EscreverArvore(raiz,1);
 	//yylex_destroy();
 	ApagarTabela();
+	LimparStack(pilhaEscopo);
 	return 0;
 }
 

@@ -20,3 +20,10 @@ typedef struct no{						//Elemento da árvore sintática! Contém um vetor de fi
 	char *nome;					//Contém uma string que identifica qual específica transição da variável foi usada para gerar este nó.
 	int escopo;
 } no;		
+
+
+typedef struct pilha{
+	struct pilha* proximo;
+	struct pilha* anterior;
+	int valor;
+} pilha;
