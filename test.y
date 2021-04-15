@@ -1060,7 +1060,7 @@ for:
 																													$4 = NULL;
 																													$6 = NULL;
 																													$8 = NULL;
-																													$9 = NULL;
+																													
 																													no* ancora = (no*)malloc(sizeof(no));
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
@@ -1077,6 +1077,7 @@ for:
 																													
 																													(*ancora).filhos[3] = $11;
 																													$12 = NULL;
+																													$10 = NULL;
 																													$$ = ancora;
 																													Pop(pilhaEscopo);
 																												}
