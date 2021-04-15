@@ -1065,6 +1065,9 @@ for:
 																													(*ancora).filhos[0] = $3;
 																													(*ancora).filhos[1] = $5;
 																													(*ancora).filhos[2] = $7;
+																													(*ancora).filhos[3] = $11;
+																													$12 = NULL;
+																													$$ = ancora;
 																													//$ $ = ancora;
 																													(*ancora).numFilhos = 4;
 																													(*ancora).tipo = YYSYMBOL_for;
@@ -1072,13 +1075,8 @@ for:
 																													(*ancora).nome = strdup(ancora2);
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
-																													$$ = ancora;
 																												} 
 			statement CLOSECURLY																				{
-																													
-																													((no)$$).filhos[3] = $11;
-																													$12 = NULL;
-																													
 																													Pop(pilhaEscopo);
 																												}
 	;
