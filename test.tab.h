@@ -108,7 +108,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 269 "test.y"
+#line 271 "test.y"
 
 	double val;	
 	char *text;
