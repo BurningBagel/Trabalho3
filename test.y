@@ -5,6 +5,8 @@
 #include "definicoes.h"
 
 extern FILE *yyin;
+extern int linhaCount;
+extern int colunaCount;
 
 void yyerror(char const *s);
 int yylex(void);
@@ -716,6 +718,19 @@ single_line_statement:
 													$2 = NULL;
 												}
 
+	|	error SEMICOLON 						{
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 0;
+													char ancora2[] = "ERROR";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).tipo = YYSYMBOL_single_line_statement;
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													$$ = ancora;
+													$2 = NULL;
+													yyerrok;
+												}
+
 	;
 
 
@@ -1126,6 +1141,47 @@ if:
 																												$2 = NULL;
 																												$4 = NULL;
 																											}
+	|	IF OPENPAR error CLOSEPAR OPENCURLY 
+																											{
+																												escopoCounter++;
+																												Push(pilhaEscopo,CriarStack(escopoCounter));
+																												
+																											} 
+		statement CLOSECURLY else																			{
+																												no* ancora = (no*)malloc(sizeof(no));
+																												$1 = NULL;
+																												$2 = NULL;
+																												$4 = NULL;
+																												$5 = NULL;
+																												char ancora2[] = "ERROR";
+																												(*ancora).nome = strdup(ancora2);
+																												(*ancora).refereTabela = NULL;
+																												(*ancora).valor = NULL;
+																												(*ancora).numFilhos = 2;
+																												(*ancora).tipo = YYSYMBOL_if;
+																												(*ancora).filhos[0] = $7;
+																												(*ancora).filhos[1] = $9;
+																												$8 = NULL;
+																												Pop(pilhaEscopo);
+																												$$ = ancora;
+																												yyerrok;
+																											}
+	|  IF OPENPAR error CLOSEPAR single_line_statement else													{
+																												no* ancora = (no*)malloc(sizeof(no));
+																												(*ancora).filhos[0] = $5;
+																												(*ancora).filhos[1] = $6;
+																												(*ancora).numFilhos = 2;
+																												(*ancora).tipo = YYSYMBOL_if;
+																												char ancora2[] = "ERROR";
+																												(*ancora).nome = strdup(ancora2);
+																												(*ancora).refereTabela = NULL;
+																												(*ancora).valor = NULL;
+																												$$ = ancora;
+																												$1 = NULL;
+																												$2 = NULL;
+																												$4 = NULL;
+																												yyerrok;
+																											}
 	;
 
 else:
@@ -1441,7 +1497,7 @@ iteracao:
 																				Pop(pilhaEscopo);
 																				$$ = ancora;
 																			}
-	|	FORALL OPENPAR pertinencia CLOSEPAR single_line_statement 				{
+	|	FORALL OPENPAR pertinencia CLOSEPAR single_line_statement 			{
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 2;
 																				(*ancora).filhos[0] = $3;
@@ -1455,6 +1511,45 @@ iteracao:
 																				$1 = NULL;
 																				$2 = NULL;
 																				$4 = NULL;
+																			}
+	|	FORALL OPENPAR error CLOSEPAR OPENCURLY
+																			{
+																				escopoCounter++;
+																				Push(pilhaEscopo,CriarStack(escopoCounter));
+																				
+																			}
+		 statement CLOSECURLY												{
+		 																		$1 = NULL;
+																				$2 = NULL;
+																				$4 = NULL;
+																				$5 = NULL;
+																				no* ancora = (no*)malloc(sizeof(no));
+																				(*ancora).numFilhos = 1;
+																				(*ancora).filhos[0] = $7;
+																				(*ancora).tipo = YYSYMBOL_iteracao;
+																				char ancora2[] = "ERROR";
+																				(*ancora).nome = strdup(ancora2);
+																				(*ancora).refereTabela = NULL;
+																				(*ancora).valor = NULL;
+																				$8 = NULL;
+																				Pop(pilhaEscopo);
+																				$$ = ancora;
+																				yyerrok;
+																			}
+	|	FORALL OPENPAR error CLOSEPAR single_line_statement 				{
+																				no* ancora = (no*)malloc(sizeof(no));
+																				(*ancora).numFilhos = 1;
+																				(*ancora).filhos[0] = $5;
+																				(*ancora).tipo = YYSYMBOL_iteracao;
+																				char ancora2[] = "ERROR SINGLE";
+																				(*ancora).nome = strdup(ancora2);
+																				(*ancora).refereTabela = NULL;
+																				(*ancora).valor = NULL;
+																				$$ = ancora;
+																				$1 = NULL;
+																				$2 = NULL;
+																				$4 = NULL;
+																				yyerrok;
 																			}
 	;
 
@@ -1490,38 +1585,60 @@ function_call:
 	;
 */
 args:
-		ID args1		{
-							no* ancora = (no*)malloc(sizeof(no));
-							(*ancora).numFilhos = 1;
-							(*ancora).filhos[0] = $2;
-							(*ancora).tipo = YYSYMBOL_args;
-							char ancora2[] = "ID";
-							(*ancora).nome = strdup(ancora2);
-							simbolo *ancoraSimb = ProcurarTabela($1);
-							if(ancoraSimb != NULL){
-								(*ancora).refereTabela = ancoraSimb;
-							}
-							else{
-								//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
-								printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+			ID args1		{
+								no* ancora = (no*)malloc(sizeof(no));
+								(*ancora).numFilhos = 1;
+								(*ancora).filhos[0] = $2;
+								(*ancora).tipo = YYSYMBOL_args;
+								char ancora2[] = "ID";
+								(*ancora).nome = strdup(ancora2);
+								simbolo *ancoraSimb = ProcurarTabela($1);
+								if(ancoraSimb != NULL){
+									(*ancora).refereTabela = ancoraSimb;
+								}
+								else{
+									//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
+									printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
 
+								}
+								(*ancora).valor = strdup($1);
+								free($1);
+								$$ = ancora;
 							}
-							(*ancora).valor = strdup($1);
-							free($1);
-							$$ = ancora;
-						}
-	|	NUM args1		{	
-							no* ancora = (no*)malloc(sizeof(no));
-							(*ancora).numFilhos = 1;
-							(*ancora).filhos[0] = $2;
-							(*ancora).tipo = YYSYMBOL_args;
-							char ancora2[] = "NUM";
-							(*ancora).nome = strdup(ancora2);
-							(*ancora).refereTabela = NULL;
-							(*ancora).valor = strdup($1);
-							free($1);
-							$$ = ancora;
-						}
+		|	NUM args1		{	
+								no* ancora = (no*)malloc(sizeof(no));
+								(*ancora).numFilhos = 1;
+								(*ancora).filhos[0] = $2;
+								(*ancora).tipo = YYSYMBOL_args;
+								char ancora2[] = "NUM";
+								(*ancora).nome = strdup(ancora2);
+								(*ancora).refereTabela = NULL;
+								(*ancora).valor = strdup($1);
+								free($1);
+								$$ = ancora;
+							}
+	|	function_call args1 {	
+								no* ancora = (no*)malloc(sizeof(no));
+								(*ancora).numFilhos = 2;
+								(*ancora).filhos[0] = $1;
+								(*ancora).filhos[0] = $2;
+								(*ancora).tipo = YYSYMBOL_args;
+								char ancora2[] = "function_call";
+								(*ancora).nome = strdup(ancora2);
+								(*ancora).refereTabela = NULL;
+								$$ = ancora;
+							}
+	|	error args1 		{	
+								no* ancora = (no*)malloc(sizeof(no));
+								(*ancora).numFilhos = 1;
+								(*ancora).filhos[0] = $2;
+								(*ancora).tipo = YYSYMBOL_args;
+								char ancora2[] = "ERROR";
+								(*ancora).nome = strdup(ancora2);
+								(*ancora).refereTabela = NULL;
+								$$ = ancora;
+								yyerrok;
+							}
 	;
 
 args1:
@@ -1600,6 +1717,17 @@ funcargs:
 									(*ancora).refereTabela = NULL;
 									(*ancora).valor = NULL;
 									$$ = ancora;
+								}
+	|	error					{
+									no* ancora = (no*)malloc(sizeof(no));
+									(*ancora).numFilhos = 0;
+									char ancora2[] = "ERROR";
+									(*ancora).nome = strdup(ancora2);
+									(*ancora).tipo = YYSYMBOL_funcargs;
+									(*ancora).refereTabela = NULL;
+									(*ancora).valor = NULL;
+									$$ = ancora;
+									yyerrok;
 								}
 	;
 	
@@ -1682,6 +1810,18 @@ variable_declaration:
 																			(*ancora).valor = strdup($2);
 																			free($2);
 																			$$ = ancora;
+																		}
+	|	type error															{
+																			no* ancora = (no*)malloc(sizeof(no));
+																			(*ancora).numFilhos = 1;
+																			(*ancora).filhos[0] = $1;
+																			char ancora2[] = "ERROR";
+																			(*ancora).nome = strdup(ancora2);
+																			(*ancora).tipo = YYSYMBOL_variable_declaration;
+																			(*ancora).refereTabela = NULL;
+																			(*ancora).valor = NULL;
+																			$$ = ancora;
+																			yyerrok;
 																		}
 /*		INT ID SEMICOLON
 	|	FLOAT ID SEMICOLON
@@ -1908,7 +2048,7 @@ void yyerror(char *s){
 */
 
 void yyerror(char const *s){
-	printf("%s\n",s);
+	printf("At line %d, column %d: %s\n",linhaCount,colunaCount,s);
 
 }
 
