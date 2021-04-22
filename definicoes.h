@@ -1,3 +1,7 @@
+enum typeConversion{None, IntToFloat, FloatToInt, ElemToInt, ElemToFloat};
+
+enum typeVirtual{Int, Float, Elem}
+
 typedef struct simbolo{				//elemento da tabela de simbolos. Contém ponteiros para os simbolos seguinte e anterior, o nome do simbolo, o valor associado a ele(em string,se tiver), qual tipo
 	struct simbolo* anterior;		//de simbolo é (vide defines acima), e o tamanho do valor(caso exista)
 	struct simbolo* seguinte;
@@ -19,6 +23,8 @@ typedef struct no{						//Elemento da árvore sintática! Contém um vetor de fi
 	char *valor;				//Contém o valor associado ao item abaixo, caso exista. Para números, contém o número em string. Para IDs, contém o nome do ID, etc.
 	char *nome;					//Contém uma string que identifica qual específica transição da variável foi usada para gerar este nó.
 	int escopo;
+	int conversion;
+	int tipoVirtual;
 } no;		
 
 

@@ -20,11 +20,21 @@ int yylex(void);
 #define ELEM_TABLE 7
 #define SET_TABLE 8
 
-
+/*
+TODO
+	
+	2- Implementar conversão de tipos
+	3- Implementar acuso de erro devido a uso de tipo errado
+*/
 
 
 simbolo* tabelaSimbolos;
 simbolo* topo;
+no* raiz;
+pilha* pilhaEscopo;
+
+int escopoCounter;
+
 	
 simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
@@ -69,6 +79,17 @@ void ApagarTabela(){
 	while(ancora != NULL);
 }
 
+simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){
+	simbolo *ancora = tabelaSimbolos;
+
+	while(ancora != NULL){
+		if(!strcmp((*ancora).nome,alvo) && (*ancora).escopo == escopo){
+			return ancora;
+		}
+		ancora = (*ancora).seguinte;
+	}
+	return NULL;
+}
 	
 simbolo* ProcurarTabela(char* alvo){
 	simbolo *ancora = tabelaSimbolos;
@@ -81,13 +102,6 @@ simbolo* ProcurarTabela(char* alvo){
 	}
 	return NULL;
 }
-	
-
-no* raiz;
-
-int escopoCounter;
-pilha* pilhaEscopo;
-
 
 void EscreverTabela(){
 	printf("-----------TABELA DE SIMBOLOS----------\n");
@@ -152,12 +166,12 @@ no* ProcurarArvore(int tipo,char* nome, no* base){
 }
 
 
-int Top(pilha* stack){
+pilha* Top(pilha* stack){
 	pilha* ancora = stack;
 	while((*ancora).seguinte != NULL){
 		ancora = (*ancora).seguinte;
 	}
-	return (*ancora).valor;
+	return ancora;
 }
 
 void Pop(pilha* stack){
@@ -200,68 +214,20 @@ void LimparStack(pilha* stack){
 	}
 }
 
-/*
-void PreencherEscopo(no* base, int escopo){
-	int i;
-	no* ancora;
-	simbolo* ancora = (*base).refereTabela;
-	if((*base).tipo == YYSYMBOL_function_declaration || (*base).tipo == YYSYMBOL_variable_declaration) (*ancora).escopo = escopo; //Escopo é decidido na declaração
-	if((*base).numFilhos > 0){
-			switch((*base).tipo){
-				case YYSYMBOL_statement:
-					if(!strcmp((*base).nome,"curly")){
-						PreencherEscopo((*base).filhos[0],escopo+1);
-					}
-					else {
-						PreencherEscopo((*base).filhos[0],escopo);
-						PreencherEscopo((*base).filhos[1],escopo);
-					} 
-				break;
+simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessível dentro da pilha de escopo atual, olhando do topo até sua base, e retornando o ponteiro a tabela se sim.
+											//Fazemos isto procurando na tabela de simbolos pela combinação do simbolo alvo e o escopo mais externo ainda não checado(podemos ter o mesmo simbolo em escopos diferentes!)
+	pilha* ancora = Top(pilhaEscopo);
+	simbolo* ancoraSimbolo;
 
-				case YYSYMBOL_single_line_statement:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_comparg:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_comparison:
-					PreencherEscopo((*base).filhos[0],escopo);
-					if(strcmp((*base).nome,"not")){
-						PreencherEscopo((*base).filhos[1],escopo);
-					}
-				break;
-
-				case YYSYMBOL_write:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_writeln:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_return:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_for:
-					PreencherEscopo((*base).filhos[0],escopo);
-					PreencherEscopo((*base).filhos[1],escopo);
-					PreencherEscopo((*base).filhos[2],escopo);
-					PreencherEscopo((*base).filhos[3],escopo+1);
-				break;
-
-				case YYSYMBOL_if:
-					PreencherEscopo((*base).filhos[0],escopo);
-					PreencherEscopo((*base).filhos[2],escopo+1);
-					if(!strcmp((*base).nome,""))
-				break;
-			}
+	while(ancora != NULL){
+		ancoraSimbolo = ProcurarTabelaEscopo(alvo,(*ancora).valor);
+		if(ancoraSimbolo != NULL){
+			return ancoraSimbolo;
+		}
+		ancora = (*ancora).anterior;
 	}
+	return NULL;
 }
-
-*/
 
 %}
 
@@ -383,6 +349,9 @@ inicio:
 		statement								{
 													raiz = $1;
 													//(*raiz).escopo = 1;
+													if(ProcurarTabela("main") == NULL){
+														printf("ERRO SEMANTICO! NAO FOI DECLARADA UMA FUNCAO MAIN!\n");
+													}
 												}
 	;
 
@@ -403,6 +372,8 @@ statement:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	OPENCURLY 
@@ -425,6 +396,8 @@ statement:
 													$$ = ancora;
 													// $ 3 = NULL;
 													$4 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													Pop(pilhaEscopo);
 												}
 		
@@ -440,6 +413,8 @@ statement:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	
@@ -470,6 +445,8 @@ statement:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	if statement							{
@@ -484,6 +461,8 @@ statement:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	iteracao statement 						{
@@ -498,6 +477,8 @@ statement:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	variable_declaration SEMICOLON statement 			{
@@ -514,6 +495,8 @@ statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 	/*
 	|	assignment SEMICOLON statement			{
@@ -616,6 +599,8 @@ statement:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													$$ = ancora;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 	;
 	
@@ -634,6 +619,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 
 	|	assignment SEMICOLON 					{
@@ -648,6 +635,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 
 	|	write SEMICOLON		 					{
@@ -662,6 +651,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 
 	|	writeln SEMICOLON	 					{
@@ -676,6 +667,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 
 	|	read SEMICOLON		 					{
@@ -690,6 +683,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 /*
 	|	mathop 									{
@@ -716,6 +711,8 @@ single_line_statement:
 													(*ancora).valor = NULL;
 													$$ = ancora;
 													$2 = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 
 	|	error SEMICOLON 						{
@@ -726,6 +723,8 @@ single_line_statement:
 													(*ancora).tipo = YYSYMBOL_single_line_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 													yyerrok;
@@ -743,15 +742,17 @@ comparg:
 													(*ancora).valor = strdup($1);
 													char ancora2[] = "ID";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela($1);
+													simbolo *ancoraSimb = VerificarEscopo($1);
 													if(ancoraSimb != NULL){ //Vamos começar a usar a tabela de simbolos! Se não acharmos este ID na tabela, devemos colocar-lo lá, mas sem valor! Só em assignment a gente coloca valor
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
 														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL,escopoCounter); Tirei essa linha pq é hora de acusar erros semânticos! Se acharmos um ID que não foi declarado, temos q dar erro!
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+														(*ancora).refereTabela = NULL;
 													}
-													
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free($1);
 
 													
@@ -766,6 +767,8 @@ comparg:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$3 = NULL;
@@ -778,6 +781,8 @@ comparg:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).valor = strdup($1);
 													(*ancora).refereTabela = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													free($1);
 												}
@@ -790,6 +795,8 @@ comparg:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	;
@@ -804,6 +811,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 												}
@@ -817,6 +826,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -830,6 +841,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -843,6 +856,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -856,6 +871,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -869,6 +886,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -882,6 +901,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -895,6 +916,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -908,6 +931,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -920,17 +945,18 @@ read:
 													(*ancora).tipo = YYSYMBOL_read;
 													char ancora2[] = "read";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela($1);
+													simbolo *ancoraSimb = VerificarEscopo($3);
 													if(ancoraSimb != NULL){ 
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$3);
-
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$3);
+														(*ancora).refereTabela = NULL;
 													}
 													$$ = ancora;
 													(*ancora).valor = strdup($3);
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free($3);
 													$1 = NULL;
 													$2 = NULL;
@@ -949,6 +975,8 @@ write:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -963,6 +991,8 @@ write:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup($3);
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													free($3);
 													$1 = NULL;
@@ -977,6 +1007,8 @@ write:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup($3);
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													free($3);
 													$1 = NULL;
@@ -997,6 +1029,8 @@ writeln:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -1011,6 +1045,8 @@ writeln:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup($3);
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													free($3);
 													$1 = NULL;
@@ -1035,6 +1071,8 @@ return:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													//free($3);
@@ -1048,6 +1086,8 @@ return:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													//free($3);
@@ -1060,6 +1100,8 @@ return:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													//free($2);
@@ -1091,6 +1133,8 @@ for:
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
 																													(*ancora).filhos[3] = $11;
+																													(*ancora).conversion = None;
+																													(*ancora).tipoVirtual = 0;
 																													$12 = NULL;
 																													$10 = NULL;
 																													$$ = ancora;
@@ -1121,6 +1165,8 @@ if:
 																												(*ancora).tipo = YYSYMBOL_if;
 																												(*ancora).filhos[1] = $7;
 																												(*ancora).filhos[2] = $9;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												$8 = NULL;
 																												Pop(pilhaEscopo);
 																												$$ = ancora;
@@ -1136,6 +1182,8 @@ if:
 																												(*ancora).nome = strdup(ancora2);
 																												(*ancora).refereTabela = NULL;
 																												(*ancora).valor = NULL;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												$$ = ancora;
 																												$1 = NULL;
 																												$2 = NULL;
@@ -1161,6 +1209,8 @@ if:
 																												(*ancora).tipo = YYSYMBOL_if;
 																												(*ancora).filhos[0] = $7;
 																												(*ancora).filhos[1] = $9;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												$8 = NULL;
 																												Pop(pilhaEscopo);
 																												$$ = ancora;
@@ -1176,6 +1226,8 @@ if:
 																												(*ancora).nome = strdup(ancora2);
 																												(*ancora).refereTabela = NULL;
 																												(*ancora).valor = NULL;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												$$ = ancora;
 																												$1 = NULL;
 																												$2 = NULL;
@@ -1194,6 +1246,8 @@ else:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														$$ = ancora;
 														free($1);
 													}
@@ -1206,6 +1260,8 @@ else:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														$$ = ancora;
 														$1 = NULL;
 													}
@@ -1224,6 +1280,8 @@ else:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														$$ = ancora;
 														$5 = NULL;
 														Pop(pilhaEscopo);
@@ -1236,6 +1294,8 @@ else:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														$$ = ancora;
 													}
 ;
@@ -1250,6 +1310,8 @@ conjuntoop:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	tipagem									{
@@ -1261,6 +1323,8 @@ conjuntoop:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	inclusao								{
@@ -1272,6 +1336,8 @@ conjuntoop:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	remocao									{
@@ -1283,6 +1349,8 @@ conjuntoop:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	selecao									{
@@ -1294,6 +1362,8 @@ conjuntoop:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	;
@@ -1308,6 +1378,8 @@ conjuntoop1:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	tipagem									{
@@ -1319,6 +1391,8 @@ conjuntoop1:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	inclusao								{
@@ -1330,6 +1404,8 @@ conjuntoop1:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	remocao									{
@@ -1341,6 +1417,8 @@ conjuntoop1:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	selecao									{
@@ -1352,6 +1430,8 @@ conjuntoop1:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 												}
 	|	ID 										{
@@ -1360,15 +1440,17 @@ conjuntoop1:
 													(*ancora).tipo = YYSYMBOL_conjuntoop1;
 													char ancora2[] = "ID";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela($1);
-													if(ancoraSimb != NULL){
+													simbolo *ancoraSimb = VerificarEscopo($1);
+													if(ancoraSimb != NULL){ 
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+														(*ancora).refereTabela = NULL;
 													}
 													(*ancora).valor = strdup($1);
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free($1);
 													$$ = ancora;
 												}
@@ -1385,6 +1467,8 @@ pertinencia:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -1398,6 +1482,8 @@ pertinencia:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -1413,6 +1499,8 @@ tipagem:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -1430,6 +1518,8 @@ inclusao:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -1447,6 +1537,8 @@ remocao:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -1465,6 +1557,8 @@ selecao:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
 													$1 = NULL;
 													$2 = NULL;
@@ -1493,6 +1587,8 @@ iteracao:
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
 																				(*ancora).filhos[1] = $7;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$8 = NULL;
 																				Pop(pilhaEscopo);
 																				$$ = ancora;
@@ -1507,6 +1603,8 @@ iteracao:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$$ = ancora;
 																				$1 = NULL;
 																				$2 = NULL;
@@ -1531,6 +1629,8 @@ iteracao:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$8 = NULL;
 																				Pop(pilhaEscopo);
 																				$$ = ancora;
@@ -1545,6 +1645,8 @@ iteracao:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$$ = ancora;
 																				$1 = NULL;
 																				$2 = NULL;
@@ -1562,14 +1664,16 @@ function_call:
 																				char ancora2[] = "function_call";
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).valor = strdup($1);
-																				simbolo *ancoraSimb = ProcurarTabela($1);
-																				if(ancoraSimb != NULL){
+																				simbolo *ancoraSimb = VerificarEscopo($1);
+																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
-																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+																					(*ancora).refereTabela = NULL;
 																				}
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$$ = ancora;
 																				$1 = NULL;
 																				$2 = NULL;
@@ -1592,16 +1696,17 @@ args:
 								(*ancora).tipo = YYSYMBOL_args;
 								char ancora2[] = "ID";
 								(*ancora).nome = strdup(ancora2);
-								simbolo *ancoraSimb = ProcurarTabela($1);
-								if(ancoraSimb != NULL){
+								simbolo *ancoraSimb = VerificarEscopo($1);
+								if(ancoraSimb != NULL){ 
 									(*ancora).refereTabela = ancoraSimb;
 								}
 								else{
-									//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
-									printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
-
+									printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+									(*ancora).refereTabela = NULL;
 								}
 								(*ancora).valor = strdup($1);
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								free($1);
 								$$ = ancora;
 							}
@@ -1614,6 +1719,8 @@ args:
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
 								(*ancora).valor = strdup($1);
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								free($1);
 								$$ = ancora;
 							}
@@ -1626,6 +1733,8 @@ args:
 								char ancora2[] = "function_call";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								$$ = ancora;
 							}
 	|	error args1 		{	
@@ -1636,6 +1745,8 @@ args:
 								char ancora2[] = "ERROR";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								$$ = ancora;
 								yyerrok;
 							}
@@ -1651,6 +1762,8 @@ args1:
 							(*ancora).nome = strdup(ancora2);
 							(*ancora).refereTabela = NULL;
 							(*ancora).valor = NULL;
+							(*ancora).conversion = None;
+							(*ancora).tipoVirtual = 0;
 							$$ = ancora;
 							$1 = NULL;
 						}
@@ -1662,6 +1775,8 @@ args1:
 							(*ancora).tipo = YYSYMBOL_args1;
 							(*ancora).refereTabela = NULL;
 							(*ancora).valor = NULL;
+							(*ancora).conversion = None;
+							(*ancora).tipoVirtual = 0;
 							$$ = ancora;
 						}
 	;
@@ -1674,15 +1789,17 @@ funcargs:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									char ancora2[] = "single";
 									(*ancora).nome = strdup(ancora2);
-									simbolo *ancoraSimb = ProcurarTabela($2);
-									if(ancoraSimb != NULL){
+									simbolo *ancoraSimb = VerificarEscopo($2);
+									if(ancoraSimb != NULL){ 
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
-										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$2);
+										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$2);
+										(*ancora).refereTabela = NULL;
 									}
 									(*ancora).valor = strdup($2);
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									free($2);
 									$$ = ancora;
 								}
@@ -1695,15 +1812,17 @@ funcargs:
 									char ancora2[] = "comma";
 									(*ancora).nome = strdup(ancora2);
 									//printf("\n\nOI %s OI\n\n",$2);
-									simbolo *ancoraSimb = ProcurarTabela($2);
-									if(ancoraSimb != NULL){
+									simbolo *ancoraSimb = VerificarEscopo($2);
+									if(ancoraSimb != NULL){ 
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
-										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$2);
+										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$2);
+										(*ancora).refereTabela = NULL;
 									}
 									(*ancora).valor = strdup($2);
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									free($2);
 									$3 = NULL;
 									$$ = ancora;
@@ -1716,6 +1835,8 @@ funcargs:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									(*ancora).refereTabela = NULL;
 									(*ancora).valor = NULL;
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									$$ = ancora;
 								}
 	|	error					{
@@ -1726,6 +1847,8 @@ funcargs:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									(*ancora).refereTabela = NULL;
 									(*ancora).valor = NULL;
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									$$ = ancora;
 									yyerrok;
 								}
@@ -1761,6 +1884,8 @@ function_declaration:
 																				(*ancora).valor = strdup($2);
 																				free($2);
 																				(*ancora).filhos[2] = $8;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				$9 = NULL;
 																				Pop(pilhaEscopo);
 																				$$ = ancora;
@@ -1776,15 +1901,17 @@ assignment:
 																				(*ancora).filhos[0] = $3;
 																				char ancora2[] = "ID";
 																				(*ancora).nome = strdup(ancora2);
-																				simbolo *ancoraSimb = ProcurarTabela($1);
-																				if(ancoraSimb != NULL){
+																				simbolo *ancoraSimb = VerificarEscopo($1);
+																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+																					(*ancora).refereTabela = NULL;
 																				}
 																				(*ancora).valor = strdup($1);
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				free($1);
 																				$2 = NULL;
 																				$$ = ancora;
@@ -1808,6 +1935,8 @@ variable_declaration:
 																				(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
 																			}
 																			(*ancora).valor = strdup($2);
+																			(*ancora).conversion = None;
+																			(*ancora).tipoVirtual = 0;
 																			free($2);
 																			$$ = ancora;
 																		}
@@ -1820,6 +1949,8 @@ variable_declaration:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			(*ancora).refereTabela = NULL;
 																			(*ancora).valor = NULL;
+																			(*ancora).conversion = None;
+																			(*ancora).tipoVirtual = 0;
 																			$$ = ancora;
 																			yyerrok;
 																		}
@@ -1840,6 +1971,8 @@ mathop:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1853,6 +1986,8 @@ mathop:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1865,6 +2000,8 @@ mathop:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 									}
 	;
@@ -1880,6 +2017,8 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1893,6 +2032,8 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1905,6 +2046,8 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 									}
 	;
@@ -1920,6 +2063,8 @@ mathop2:
 										(*ancora).tipo = YYSYMBOL_mathop2;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 									}
 	|	OPENPAR mathop CLOSEPAR		{
@@ -1931,6 +2076,8 @@ mathop2:
 										(*ancora).tipo = YYSYMBOL_mathop2;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$1 = NULL;
 										$3 = NULL;
@@ -1944,15 +2091,17 @@ matharg:
 										(*ancora).tipo = YYSYMBOL_matharg;
 										char ancora2[] = "ID";
 										(*ancora).nome = strdup(ancora2);
-										simbolo *ancoraSimb = ProcurarTabela($1);
-										if(ancoraSimb != NULL){
+										simbolo *ancoraSimb = VerificarEscopo($1);
+										if(ancoraSimb != NULL){ 
 											(*ancora).refereTabela = ancoraSimb;
 										}
 										else{
-											//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-											printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",$1);
+											printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+											(*ancora).refereTabela = NULL;
 										}
 										(*ancora).valor = strdup($1);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										free($1);
 										$$ = ancora;																
 									}
@@ -1965,6 +2114,8 @@ matharg:
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).valor = strdup($1);
 										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										free($1);
 										$$ = ancora;																
 									}
@@ -1977,6 +2128,8 @@ matharg:
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).valor = NULL;
 										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;																
 									}
 	;
@@ -1992,6 +2145,8 @@ type:
 										char ancora3[2];
 										sprintf(ancora3,"%d",SET_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2005,6 +2160,8 @@ type:
 										char ancora3[2];
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2018,6 +2175,8 @@ type:
 										char ancora3[2];
 										sprintf(ancora3,"%d",ELEM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2031,6 +2190,8 @@ type:
 										char ancora3[2];
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										$$ = ancora;
 										$1 = NULL;
 									}

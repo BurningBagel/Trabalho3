@@ -34,7 +34,7 @@
 
 %x comentario
 
-especiais 		[_\-@#$%&\*\(\)!\+=\.\,;:><\{\}\?\\\/^~ªº§´`'"]
+
 delim			[ \t]
 ws			{delim}+
 letter			[a-zA-Z]
