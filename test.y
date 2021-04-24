@@ -80,8 +80,8 @@ void ApagarTabela(){
 	while(ancora != NULL);
 }
 
-simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){
-	simbolo *ancora = tabelaSimbolos;
+simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){//Procura na tabela por um ID no escopo dado com o nome alvo. Usado pra verificar redeclaracao
+	simbolo *ancora = tabelaSimbolos; 					//
 
 	while(ancora != NULL){
 		if(!strcmp((*ancora).nome,alvo) && (*ancora).escopo == escopo){
@@ -1793,14 +1793,9 @@ funcargs:
 									char ancora2[] = "single";
 									(*ancora).nome = strdup(ancora2);
 									simbolo *ancoraSimb = VerificarEscopo($2);
-									if(ancoraSimb != NULL){ 
-										(*ancora).refereTabela = ancoraSimb;
-									}
-									else{
-										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$2);
-										(*ancora).refereTabela = NULL;
-									}
 									(*ancora).valor = strdup($2);
+									(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
+									
 									(*ancora).conversion = None;
 									(*ancora).tipoVirtual = 0;
 									free($2);
@@ -1815,15 +1810,8 @@ funcargs:
 									char ancora2[] = "comma";
 									(*ancora).nome = strdup(ancora2);
 									//printf("\n\nOI %s OI\n\n",$2);
-									simbolo *ancoraSimb = VerificarEscopo($2);
-									if(ancoraSimb != NULL){ 
-										(*ancora).refereTabela = ancoraSimb;
-									}
-									else{
-										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$2);
-										(*ancora).refereTabela = NULL;
-									}
 									(*ancora).valor = strdup($2);
+									(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
 									(*ancora).conversion = None;
 									(*ancora).tipoVirtual = 0;
 									free($2);
@@ -1859,16 +1847,18 @@ funcargs:
 	
 
 function_declaration:
-		type ID OPENPAR funcargs CLOSEPAR OPENCURLY 
-																			{
+		type ID  
+																			{ //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
+
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																			}
-		statement CLOSECURLY 												{
+		OPENPAR funcargs CLOSEPAR OPENCURLY statement CLOSECURLY 			{
 																				$3 = NULL;
 																				$5 = NULL;
 																				$6 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
+																				int realEscopo;
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = $1;
 																				(*ancora).filhos[1] = $4;
@@ -1877,12 +1867,13 @@ function_declaration:
 																				char ancora2[] = "function_declaration";
 																				(*ancora).nome = strdup(ancora2);
 																				simbolo *ancoraSimb = ProcurarTabela($2);
+																				Pop(pilhaEscopo);
+																				realEscopo = Top(pilhaEscopo)->valor;
 																				if(ancoraSimb != NULL){
-																					(*ancora).refereTabela = ancoraSimb;
-																					(*ancoraSimb).tipo = FUNC_TABLE;
+																					printf("ERRO SEMANTICO! ID %s REDECLARADO COMO FUNCAO! LINHA: %d, COLUNA: %d \n",$2,linhaCount,colunaCount);
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo($2,FUNC_TABLE,NULL,escopoCounter);
+																					(*ancora).refereTabela = CriarSimbolo($2,FUNC_TABLE,NULL,realEscopo);
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
@@ -1890,7 +1881,6 @@ function_declaration:
 																				(*ancora).conversion = None;
 																				(*ancora).tipoVirtual = 0;
 																				$9 = NULL;
-																				Pop(pilhaEscopo);
 																				$$ = ancora;
 																			}
 	;
@@ -1929,10 +1919,9 @@ variable_declaration:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			char ancora2[] = "variable_declaration";
 																			(*ancora).nome = strdup(ancora2);
-																			simbolo *ancoraSimb = ProcurarTabela($2);
+																			simbolo *ancoraSimb = ProcurarTabelaEscopo($2);
 																			if(ancoraSimb != NULL){
-																				(*ancora).refereTabela = ancoraSimb;
-																				(*ancoraSimb).tipo = atoi(((no*)$1)->valor);
+																				printf("ERRO SEMANTICO! VARIAVEL %s REDECLARADA! LINHA: %d, COLUNA: %d\n",$2,linhaCount,colunaCount);
 																			}
 																			else{
 																				(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
