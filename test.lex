@@ -40,7 +40,8 @@ ws			{delim}+
 letter			[a-zA-Z]
 digit			[0-9]
 id			{letter}({letter}|{digit}|"_")*
-number			-?{digit}+(\.{digit}+)?
+integer			-?{digit}+
+floating		-?{digit}+\.{digit}+
 stringguts  		(.)+
 string			"{stringguts}"
 char			'[^\r\n]'
@@ -79,8 +80,10 @@ remove		{printf("Achei um remove na linha %d, coluna %d!\n",linhaCount,colunaCou
 exists		{printf("Achei um exists na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return EXISTS;}
 forall		{printf("Achei um forall na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return FORALL;}
 return		{printf("Achei um return na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return RETURN;}
+EMPTY		{printf("Achei um EMPTY na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return EMPTY;}
 {id}		{printf("Achei o id %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return ID;}
-{number}	{printf("Achei o numero %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return NUM;}
+{integer}	{printf("Achei o inteiro %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return INT;}
+{floating}	{printf("Achei o float %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return FLOAT;}
 {string}	{printf("Achei a string %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng;  yylval.text = strdup(yytext); return STRING;}
 {char}		{printf("Achei o char %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return CHAR;}
 "("		{printf("Achei um ( na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng;return OPENPAR;}

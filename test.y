@@ -244,8 +244,10 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 	struct no *node;
 }
 
-%token <text> NUM
+%token <text> INT 
+%token <text> FLOAT
 %token <text> STRING
+%token <text> EMPTY
 %token <text> CHAR
 %token <text> ID
 %token <text> INT
