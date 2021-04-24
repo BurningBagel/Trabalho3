@@ -7,6 +7,7 @@
 extern FILE *yyin;
 extern int linhaCount;
 extern int colunaCount;
+extern int yylex_destroy();
 
 void yyerror(char const *s);
 int yylex(void);
@@ -127,11 +128,13 @@ void EscreverTabela(){
 
 		ancora = (*ancora).seguinte;
 	}
+	printf("\n");
 }
 
 void ApagarNo(no* argumento){
 	free((*argumento).nome);
 	free((*argumento).valor);
+	free(argumento);
 }
 
 void EscreverArvore(no* argumento,int profund){
@@ -2235,10 +2238,13 @@ int main(int argc, char **argv){
 	yyparse();
 	fclose(yyin);
 	EscreverTabela();
+	printf("--------------------ARVORE SINTATICA-------------------\n");
 	EscreverArvore(raiz,1);
 	//yylex_destroy();
 	ApagarTabela();
 	LimparStack(pilhaEscopo);
+	
+	yylex_destroy();
 	return 0;
 }
 

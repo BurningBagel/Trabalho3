@@ -1,8 +1,9 @@
 enum typeConversion{None, IntToFloat, FloatToInt, ElemToInt, ElemToFloat};
 
-enum typeVirtual{Int, Float, Elem}
+enum typeVirtual{Int, Float, Elem};
 
 typedef struct simbolo{				//elemento da tabela de simbolos. Contém ponteiros para os simbolos seguinte e anterior, o nome do simbolo, o valor associado a ele(em string,se tiver), qual tipo
+
 	struct simbolo* anterior;		//de simbolo é (vide defines acima), e o tamanho do valor(caso exista)
 	struct simbolo* seguinte;
 	char *nome;

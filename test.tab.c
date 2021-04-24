@@ -77,6 +77,7 @@
 extern FILE *yyin;
 extern int linhaCount;
 extern int colunaCount;
+extern int yylex_destroy();
 
 void yyerror(char const *s);
 int yylex(void);
@@ -90,11 +91,21 @@ int yylex(void);
 #define ELEM_TABLE 7
 #define SET_TABLE 8
 
-
+/*
+TODO
+	
+	2- Implementar conversão de tipos
+	3- Implementar acuso de erro devido a uso de tipo errado
+*/
 
 
 simbolo* tabelaSimbolos;
 simbolo* topo;
+no* raiz;
+pilha* pilhaEscopo;
+
+int escopoCounter;
+
 	
 simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
@@ -139,6 +150,17 @@ void ApagarTabela(){
 	while(ancora != NULL);
 }
 
+simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){
+	simbolo *ancora = tabelaSimbolos;
+
+	while(ancora != NULL){
+		if(!strcmp((*ancora).nome,alvo) && (*ancora).escopo == escopo){
+			return ancora;
+		}
+		ancora = (*ancora).seguinte;
+	}
+	return NULL;
+}
 	
 simbolo* ProcurarTabela(char* alvo){
 	simbolo *ancora = tabelaSimbolos;
@@ -151,13 +173,6 @@ simbolo* ProcurarTabela(char* alvo){
 	}
 	return NULL;
 }
-	
-
-no* raiz;
-
-int escopoCounter;
-pilha* pilhaEscopo;
-
 
 void EscreverTabela(){
 	printf("-----------TABELA DE SIMBOLOS----------\n");
@@ -183,11 +198,13 @@ void EscreverTabela(){
 
 		ancora = (*ancora).seguinte;
 	}
+	printf("\n");
 }
 
 void ApagarNo(no* argumento){
 	free((*argumento).nome);
 	free((*argumento).valor);
+	free(argumento);
 }
 
 void EscreverArvore(no* argumento,int profund){
@@ -222,12 +239,12 @@ no* ProcurarArvore(int tipo,char* nome, no* base){
 }
 
 
-int Top(pilha* stack){
+pilha* Top(pilha* stack){
 	pilha* ancora = stack;
 	while((*ancora).seguinte != NULL){
 		ancora = (*ancora).seguinte;
 	}
-	return (*ancora).valor;
+	return ancora;
 }
 
 void Pop(pilha* stack){
@@ -270,71 +287,23 @@ void LimparStack(pilha* stack){
 	}
 }
 
-/*
-void PreencherEscopo(no* base, int escopo){
-	int i;
-	no* ancora;
-	simbolo* ancora = (*base).refereTabela;
-	if((*base).tipo == YYSYMBOL_function_declaration || (*base).tipo == YYSYMBOL_variable_declaration) (*ancora).escopo = escopo; //Escopo é decidido na declaração
-	if((*base).numFilhos > 0){
-			switch((*base).tipo){
-				case YYSYMBOL_statement:
-					if(!strcmp((*base).nome,"curly")){
-						PreencherEscopo((*base).filhos[0],escopo+1);
-					}
-					else {
-						PreencherEscopo((*base).filhos[0],escopo);
-						PreencherEscopo((*base).filhos[1],escopo);
-					} 
-				break;
+simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessível dentro da pilha de escopo atual, olhando do topo até sua base, e retornando o ponteiro a tabela se sim.
+											//Fazemos isto procurando na tabela de simbolos pela combinação do simbolo alvo e o escopo mais externo ainda não checado(podemos ter o mesmo simbolo em escopos diferentes!)
+	pilha* ancora = Top(pilhaEscopo);
+	simbolo* ancoraSimbolo;
 
-				case YYSYMBOL_single_line_statement:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_comparg:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_comparison:
-					PreencherEscopo((*base).filhos[0],escopo);
-					if(strcmp((*base).nome,"not")){
-						PreencherEscopo((*base).filhos[1],escopo);
-					}
-				break;
-
-				case YYSYMBOL_write:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_writeln:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_return:
-					PreencherEscopo((*base).filhos[0],escopo);
-				break;
-
-				case YYSYMBOL_for:
-					PreencherEscopo((*base).filhos[0],escopo);
-					PreencherEscopo((*base).filhos[1],escopo);
-					PreencherEscopo((*base).filhos[2],escopo);
-					PreencherEscopo((*base).filhos[3],escopo+1);
-				break;
-
-				case YYSYMBOL_if:
-					PreencherEscopo((*base).filhos[0],escopo);
-					PreencherEscopo((*base).filhos[2],escopo+1);
-					if(!strcmp((*base).nome,""))
-				break;
-			}
+	while(ancora != NULL){
+		ancoraSimbolo = ProcurarTabelaEscopo(alvo,(*ancora).valor);
+		if(ancoraSimbolo != NULL){
+			return ancoraSimbolo;
+		}
+		ancora = (*ancora).anterior;
 	}
+	return NULL;
 }
 
-*/
 
-
-#line 338 "test.tab.c"
+#line 307 "test.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -813,17 +782,17 @@ static const yytype_int8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   383,   383,   394,   409,   408,   431,   461,   475,   489,
-     503,   610,   625,   639,   653,   667,   681,   707,   721,   738,
-     760,   773,   784,   798,   810,   823,   836,   849,   862,   875,
-     888,   901,   917,   943,   958,   972,   991,  1006,  1029,  1042,
-    1055,  1070,  1070,  1104,  1103,  1128,  1145,  1144,  1169,  1188,
-    1200,  1212,  1212,  1231,  1244,  1255,  1266,  1277,  1288,  1302,
-    1313,  1324,  1335,  1346,  1357,  1378,  1391,  1407,  1424,  1441,
-    1459,  1477,  1476,  1500,  1516,  1515,  1539,  1557,  1588,  1608,
-    1620,  1631,  1645,  1657,  1670,  1689,  1711,  1721,  1737,  1736,
-    1772,  1795,  1814,  1833,  1846,  1859,  1873,  1886,  1899,  1914,
-    1925,  1941,  1960,  1971,  1985,  1998,  2011,  2024
+       0,   352,   352,   366,   383,   382,   407,   439,   455,   471,
+     487,   596,   613,   629,   645,   661,   677,   705,   721,   740,
+     764,   779,   792,   808,   822,   837,   852,   867,   882,   897,
+     912,   927,   945,   972,   989,  1005,  1026,  1043,  1068,  1083,
+    1098,  1115,  1115,  1151,  1150,  1177,  1196,  1195,  1222,  1243,
+    1257,  1271,  1271,  1292,  1307,  1320,  1333,  1346,  1359,  1375,
+    1388,  1401,  1414,  1427,  1440,  1463,  1478,  1496,  1515,  1534,
+    1554,  1574,  1573,  1599,  1617,  1616,  1642,  1662,  1695,  1716,
+    1730,  1743,  1759,  1773,  1788,  1809,  1833,  1845,  1863,  1862,
+    1900,  1925,  1946,  1967,  1982,  1997,  2013,  2028,  2043,  2060,
+    2073,  2091,  2112,  2125,  2141,  2156,  2171,  2186
 };
 #endif
 
@@ -1785,465 +1754,465 @@ yydestruct (const char *yymsg,
   switch (yykind)
     {
     case YYSYMBOL_NUM: /* NUM  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1791 "test.tab.c"
+#line 1760 "test.tab.c"
         break;
 
     case YYSYMBOL_STRING: /* STRING  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1797 "test.tab.c"
+#line 1766 "test.tab.c"
         break;
 
     case YYSYMBOL_CHAR: /* CHAR  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1803 "test.tab.c"
+#line 1772 "test.tab.c"
         break;
 
     case YYSYMBOL_ID: /* ID  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1809 "test.tab.c"
+#line 1778 "test.tab.c"
         break;
 
     case YYSYMBOL_INT: /* INT  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1815 "test.tab.c"
+#line 1784 "test.tab.c"
         break;
 
     case YYSYMBOL_FLOAT: /* FLOAT  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1821 "test.tab.c"
+#line 1790 "test.tab.c"
         break;
 
     case YYSYMBOL_ELEM: /* ELEM  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1827 "test.tab.c"
+#line 1796 "test.tab.c"
         break;
 
     case YYSYMBOL_SET: /* SET  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1833 "test.tab.c"
+#line 1802 "test.tab.c"
         break;
 
     case YYSYMBOL_IF: /* IF  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1839 "test.tab.c"
+#line 1808 "test.tab.c"
         break;
 
     case YYSYMBOL_ELSE: /* ELSE  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1845 "test.tab.c"
+#line 1814 "test.tab.c"
         break;
 
     case YYSYMBOL_FOR: /* FOR  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1851 "test.tab.c"
+#line 1820 "test.tab.c"
         break;
 
     case YYSYMBOL_READ: /* READ  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1857 "test.tab.c"
+#line 1826 "test.tab.c"
         break;
 
     case YYSYMBOL_WRITE: /* WRITE  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1863 "test.tab.c"
+#line 1832 "test.tab.c"
         break;
 
     case YYSYMBOL_WRITELN: /* WRITELN  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1869 "test.tab.c"
+#line 1838 "test.tab.c"
         break;
 
     case YYSYMBOL_IN: /* IN  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1875 "test.tab.c"
+#line 1844 "test.tab.c"
         break;
 
     case YYSYMBOL_IS_SET: /* IS_SET  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1881 "test.tab.c"
+#line 1850 "test.tab.c"
         break;
 
     case YYSYMBOL_ADD: /* ADD  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1887 "test.tab.c"
+#line 1856 "test.tab.c"
         break;
 
     case YYSYMBOL_REMOVE: /* REMOVE  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1893 "test.tab.c"
+#line 1862 "test.tab.c"
         break;
 
     case YYSYMBOL_EXISTS: /* EXISTS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1899 "test.tab.c"
+#line 1868 "test.tab.c"
         break;
 
     case YYSYMBOL_FORALL: /* FORALL  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1905 "test.tab.c"
+#line 1874 "test.tab.c"
         break;
 
     case YYSYMBOL_RETURN: /* RETURN  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1911 "test.tab.c"
+#line 1880 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENPAR: /* OPENPAR  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1917 "test.tab.c"
+#line 1886 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSEPAR: /* CLOSEPAR  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1923 "test.tab.c"
+#line 1892 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENCURLY: /* OPENCURLY  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1929 "test.tab.c"
+#line 1898 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSECURLY: /* CLOSECURLY  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1935 "test.tab.c"
+#line 1904 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENBRAC: /* OPENBRAC  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1941 "test.tab.c"
+#line 1910 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSEBRAC: /* CLOSEBRAC  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1947 "test.tab.c"
+#line 1916 "test.tab.c"
         break;
 
     case YYSYMBOL_LESS: /* LESS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1953 "test.tab.c"
+#line 1922 "test.tab.c"
         break;
 
     case YYSYMBOL_LE: /* LE  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1959 "test.tab.c"
+#line 1928 "test.tab.c"
         break;
 
     case YYSYMBOL_EQ: /* EQ  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1965 "test.tab.c"
+#line 1934 "test.tab.c"
         break;
 
     case YYSYMBOL_NEQ: /* NEQ  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1971 "test.tab.c"
+#line 1940 "test.tab.c"
         break;
 
     case YYSYMBOL_GREATER: /* GREATER  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1977 "test.tab.c"
+#line 1946 "test.tab.c"
         break;
 
     case YYSYMBOL_GE: /* GE  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1983 "test.tab.c"
+#line 1952 "test.tab.c"
         break;
 
     case YYSYMBOL_PLUS: /* PLUS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1989 "test.tab.c"
+#line 1958 "test.tab.c"
         break;
 
     case YYSYMBOL_MINUS: /* MINUS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1995 "test.tab.c"
+#line 1964 "test.tab.c"
         break;
 
     case YYSYMBOL_DBS: /* DBS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2001 "test.tab.c"
+#line 1970 "test.tab.c"
         break;
 
     case YYSYMBOL_AST: /* AST  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2007 "test.tab.c"
+#line 1976 "test.tab.c"
         break;
 
     case YYSYMBOL_BS: /* BS  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2013 "test.tab.c"
+#line 1982 "test.tab.c"
         break;
 
     case YYSYMBOL_ASSIGN: /* ASSIGN  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2019 "test.tab.c"
+#line 1988 "test.tab.c"
         break;
 
     case YYSYMBOL_COMMA: /* COMMA  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2025 "test.tab.c"
+#line 1994 "test.tab.c"
         break;
 
     case YYSYMBOL_SEMICOLON: /* SEMICOLON  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2031 "test.tab.c"
+#line 2000 "test.tab.c"
         break;
 
     case YYSYMBOL_OR: /* OR  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2037 "test.tab.c"
+#line 2006 "test.tab.c"
         break;
 
     case YYSYMBOL_AND: /* AND  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2043 "test.tab.c"
+#line 2012 "test.tab.c"
         break;
 
     case YYSYMBOL_NOT: /* NOT  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2049 "test.tab.c"
+#line 2018 "test.tab.c"
         break;
 
     case YYSYMBOL_AMP: /* AMP  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2055 "test.tab.c"
+#line 2024 "test.tab.c"
         break;
 
     case YYSYMBOL_PCENT: /* PCENT  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2061 "test.tab.c"
+#line 2030 "test.tab.c"
         break;
 
     case YYSYMBOL_statement: /* statement  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2067 "test.tab.c"
+#line 2036 "test.tab.c"
         break;
 
     case YYSYMBOL_single_line_statement: /* single_line_statement  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2073 "test.tab.c"
+#line 2042 "test.tab.c"
         break;
 
     case YYSYMBOL_comparg: /* comparg  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2079 "test.tab.c"
+#line 2048 "test.tab.c"
         break;
 
     case YYSYMBOL_comparison: /* comparison  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2085 "test.tab.c"
+#line 2054 "test.tab.c"
         break;
 
     case YYSYMBOL_read: /* read  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2091 "test.tab.c"
+#line 2060 "test.tab.c"
         break;
 
     case YYSYMBOL_write: /* write  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2097 "test.tab.c"
+#line 2066 "test.tab.c"
         break;
 
     case YYSYMBOL_writeln: /* writeln  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2103 "test.tab.c"
+#line 2072 "test.tab.c"
         break;
 
     case YYSYMBOL_return: /* return  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2109 "test.tab.c"
+#line 2078 "test.tab.c"
         break;
 
     case YYSYMBOL_for: /* for  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2115 "test.tab.c"
+#line 2084 "test.tab.c"
         break;
 
     case YYSYMBOL_if: /* if  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2121 "test.tab.c"
+#line 2090 "test.tab.c"
         break;
 
     case YYSYMBOL_else: /* else  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2127 "test.tab.c"
+#line 2096 "test.tab.c"
         break;
 
     case YYSYMBOL_conjuntoop: /* conjuntoop  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2133 "test.tab.c"
+#line 2102 "test.tab.c"
         break;
 
     case YYSYMBOL_conjuntoop1: /* conjuntoop1  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2139 "test.tab.c"
+#line 2108 "test.tab.c"
         break;
 
     case YYSYMBOL_pertinencia: /* pertinencia  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2145 "test.tab.c"
+#line 2114 "test.tab.c"
         break;
 
     case YYSYMBOL_tipagem: /* tipagem  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2151 "test.tab.c"
+#line 2120 "test.tab.c"
         break;
 
     case YYSYMBOL_inclusao: /* inclusao  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2157 "test.tab.c"
+#line 2126 "test.tab.c"
         break;
 
     case YYSYMBOL_remocao: /* remocao  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2163 "test.tab.c"
+#line 2132 "test.tab.c"
         break;
 
     case YYSYMBOL_selecao: /* selecao  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2169 "test.tab.c"
+#line 2138 "test.tab.c"
         break;
 
     case YYSYMBOL_iteracao: /* iteracao  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2175 "test.tab.c"
+#line 2144 "test.tab.c"
         break;
 
     case YYSYMBOL_function_call: /* function_call  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2181 "test.tab.c"
+#line 2150 "test.tab.c"
         break;
 
     case YYSYMBOL_args: /* args  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2187 "test.tab.c"
+#line 2156 "test.tab.c"
         break;
 
     case YYSYMBOL_args1: /* args1  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2193 "test.tab.c"
+#line 2162 "test.tab.c"
         break;
 
     case YYSYMBOL_funcargs: /* funcargs  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2199 "test.tab.c"
+#line 2168 "test.tab.c"
         break;
 
     case YYSYMBOL_function_declaration: /* function_declaration  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2205 "test.tab.c"
+#line 2174 "test.tab.c"
         break;
 
     case YYSYMBOL_assignment: /* assignment  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2211 "test.tab.c"
+#line 2180 "test.tab.c"
         break;
 
     case YYSYMBOL_variable_declaration: /* variable_declaration  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2217 "test.tab.c"
+#line 2186 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop: /* mathop  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2223 "test.tab.c"
+#line 2192 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop1: /* mathop1  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2229 "test.tab.c"
+#line 2198 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop2: /* mathop2  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2235 "test.tab.c"
+#line 2204 "test.tab.c"
         break;
 
     case YYSYMBOL_matharg: /* matharg  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2241 "test.tab.c"
+#line 2210 "test.tab.c"
         break;
 
     case YYSYMBOL_type: /* type  */
-#line 360 "test.y"
+#line 329 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2247 "test.tab.c"
+#line 2216 "test.tab.c"
         break;
 
       default:
@@ -2525,16 +2494,19 @@ yyreduce:
     switch (yyn)
       {
   case 2: /* inicio: statement  */
-#line 383 "test.y"
+#line 352 "test.y"
                                                                                         {
 													raiz = (yyvsp[0].node);
 													//(*raiz).escopo = 1;
+													if(ProcurarTabela("main") == NULL){
+														printf("ERRO SEMANTICO! NAO FOI DECLARADA UMA FUNCAO MAIN!\n");
+													}
 												}
-#line 2534 "test.tab.c"
+#line 2506 "test.tab.c"
     break;
 
   case 3: /* statement: single_line_statement statement  */
-#line 394 "test.y"
+#line 366 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2547,23 +2519,25 @@ yyreduce:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2553 "test.tab.c"
+#line 2527 "test.tab.c"
     break;
 
   case 4: /* $@1: %empty  */
-#line 409 "test.y"
+#line 383 "test.y"
                                                                                                 {
 													escopoCounter++;
 													Push(pilhaEscopo,CriarStack(escopoCounter));
 													(yyvsp[0].text) = NULL;
 												}
-#line 2563 "test.tab.c"
+#line 2537 "test.tab.c"
     break;
 
   case 5: /* statement: OPENCURLY $@1 statement CLOSECURLY  */
-#line 414 "test.y"
+#line 388 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2578,13 +2552,15 @@ yyreduce:
 													(yyval.node) = ancora;
 													// $ 3 = NULL;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													Pop(pilhaEscopo);
 												}
-#line 2584 "test.tab.c"
+#line 2560 "test.tab.c"
     break;
 
   case 6: /* statement: function_declaration statement  */
-#line 431 "test.y"
+#line 407 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2597,13 +2573,15 @@ yyreduce:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2603 "test.tab.c"
+#line 2581 "test.tab.c"
     break;
 
   case 7: /* statement: for statement  */
-#line 461 "test.y"
+#line 439 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2616,13 +2594,15 @@ yyreduce:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2622 "test.tab.c"
+#line 2602 "test.tab.c"
     break;
 
   case 8: /* statement: if statement  */
-#line 475 "test.y"
+#line 455 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2635,13 +2615,15 @@ yyreduce:
 													(*ancora).tipo = YYSYMBOL_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2641 "test.tab.c"
+#line 2623 "test.tab.c"
     break;
 
   case 9: /* statement: iteracao statement  */
-#line 489 "test.y"
+#line 471 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -2654,13 +2636,15 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2660 "test.tab.c"
+#line 2644 "test.tab.c"
     break;
 
   case 10: /* statement: variable_declaration SEMICOLON statement  */
-#line 503 "test.y"
+#line 487 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2675,12 +2659,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2680 "test.tab.c"
+#line 2666 "test.tab.c"
     break;
 
   case 11: /* statement: %empty  */
-#line 610 "test.y"
+#line 596 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -2690,12 +2676,14 @@ yyreduce:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2695 "test.tab.c"
+#line 2683 "test.tab.c"
     break;
 
   case 12: /* single_line_statement: return SEMICOLON  */
-#line 625 "test.y"
+#line 613 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2708,12 +2696,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2713 "test.tab.c"
+#line 2703 "test.tab.c"
     break;
 
   case 13: /* single_line_statement: assignment SEMICOLON  */
-#line 639 "test.y"
+#line 629 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2726,12 +2716,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2731 "test.tab.c"
+#line 2723 "test.tab.c"
     break;
 
   case 14: /* single_line_statement: write SEMICOLON  */
-#line 653 "test.y"
+#line 645 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2744,12 +2736,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2749 "test.tab.c"
+#line 2743 "test.tab.c"
     break;
 
   case 15: /* single_line_statement: writeln SEMICOLON  */
-#line 667 "test.y"
+#line 661 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2762,12 +2756,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2767 "test.tab.c"
+#line 2763 "test.tab.c"
     break;
 
   case 16: /* single_line_statement: read SEMICOLON  */
-#line 681 "test.y"
+#line 677 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2780,12 +2776,14 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
-#line 2785 "test.tab.c"
+#line 2783 "test.tab.c"
     break;
 
   case 17: /* single_line_statement: conjuntoop SEMICOLON  */
-#line 707 "test.y"
+#line 705 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2798,6 +2796,8 @@ yyreduce:
 													(*ancora).valor = NULL;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 												}
 #line 2803 "test.tab.c"
     break;
@@ -2812,15 +2812,17 @@ yyreduce:
 													(*ancora).tipo = YYSYMBOL_single_line_statement;
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
 													yyerrok;
 												}
-#line 2820 "test.tab.c"
+#line 2822 "test.tab.c"
     break;
 
   case 19: /* comparg: ID  */
-#line 738 "test.y"
+#line 740 "test.y"
                                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(yyval.node) = ancora;
@@ -2829,25 +2831,27 @@ yyreduce:
 													(*ancora).valor = strdup((yyvsp[0].text));
 													char ancora2[] = "ID";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela((yyvsp[0].text));
+													simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
 													if(ancoraSimb != NULL){ //Vamos começar a usar a tabela de simbolos! Se não acharmos este ID na tabela, devemos colocar-lo lá, mas sem valor! Só em assignment a gente coloca valor
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
 														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL,escopoCounter); Tirei essa linha pq é hora de acusar erros semânticos! Se acharmos um ID que não foi declarado, temos q dar erro!
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[0].text));
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
+														(*ancora).refereTabela = NULL;
 													}
-													
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free((yyvsp[0].text));
 
 													
 
 												}
-#line 2847 "test.tab.c"
+#line 2851 "test.tab.c"
     break;
 
   case 20: /* comparg: OPENPAR comparison CLOSEPAR  */
-#line 760 "test.y"
+#line 764 "test.y"
                                                                         {	
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2857,15 +2861,17 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 2865 "test.tab.c"
+#line 2871 "test.tab.c"
     break;
 
   case 21: /* comparg: NUM  */
-#line 773 "test.y"
+#line 779 "test.y"
                                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -2874,14 +2880,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).valor = strdup((yyvsp[0].text));
 													(*ancora).refereTabela = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													free((yyvsp[0].text));
 												}
-#line 2881 "test.tab.c"
+#line 2889 "test.tab.c"
     break;
 
   case 22: /* comparg: function_call  */
-#line 784 "test.y"
+#line 792 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -2891,13 +2899,15 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2897 "test.tab.c"
+#line 2907 "test.tab.c"
     break;
 
   case 23: /* comparison: NOT comparg  */
-#line 798 "test.y"
+#line 808 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -2907,14 +2917,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2914 "test.tab.c"
+#line 2926 "test.tab.c"
     break;
 
   case 24: /* comparison: comparg AND comparg  */
-#line 810 "test.y"
+#line 822 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2925,14 +2937,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2932 "test.tab.c"
+#line 2946 "test.tab.c"
     break;
 
   case 25: /* comparison: comparg OR comparg  */
-#line 823 "test.y"
+#line 837 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2943,14 +2957,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2950 "test.tab.c"
+#line 2966 "test.tab.c"
     break;
 
   case 26: /* comparison: comparg GREATER comparg  */
-#line 836 "test.y"
+#line 852 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2961,14 +2977,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2968 "test.tab.c"
+#line 2986 "test.tab.c"
     break;
 
   case 27: /* comparison: comparg GE comparg  */
-#line 849 "test.y"
+#line 867 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2979,14 +2997,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2986 "test.tab.c"
+#line 3006 "test.tab.c"
     break;
 
   case 28: /* comparison: comparg LESS comparg  */
-#line 862 "test.y"
+#line 882 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2997,14 +3017,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3004 "test.tab.c"
+#line 3026 "test.tab.c"
     break;
 
   case 29: /* comparison: comparg LE comparg  */
-#line 875 "test.y"
+#line 897 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3015,14 +3037,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3022 "test.tab.c"
+#line 3046 "test.tab.c"
     break;
 
   case 30: /* comparison: comparg EQ comparg  */
-#line 888 "test.y"
+#line 912 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3033,14 +3057,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3040 "test.tab.c"
+#line 3066 "test.tab.c"
     break;
 
   case 31: /* comparison: comparg NEQ comparg  */
-#line 901 "test.y"
+#line 927 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3051,41 +3077,44 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3058 "test.tab.c"
+#line 3086 "test.tab.c"
     break;
 
   case 32: /* read: READ OPENPAR ID CLOSEPAR  */
-#line 917 "test.y"
+#line 945 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
 													(*ancora).tipo = YYSYMBOL_read;
 													char ancora2[] = "read";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela((yyvsp[-3].text));
+													simbolo *ancoraSimb = VerificarEscopo((yyvsp[-1].text));
 													if(ancoraSimb != NULL){ 
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[-1].text));
-
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-1].text));
+														(*ancora).refereTabela = NULL;
 													}
 													(yyval.node) = ancora;
 													(*ancora).valor = strdup((yyvsp[-1].text));
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free((yyvsp[-1].text));
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3085 "test.tab.c"
+#line 3114 "test.tab.c"
     break;
 
   case 33: /* write: WRITE OPENPAR mathop CLOSEPAR  */
-#line 943 "test.y"
+#line 972 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3095,16 +3124,18 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3104 "test.tab.c"
+#line 3135 "test.tab.c"
     break;
 
   case 34: /* write: WRITE OPENPAR STRING CLOSEPAR  */
-#line 958 "test.y"
+#line 989 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3113,17 +3144,19 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup((yyvsp[-1].text));
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													free((yyvsp[-1].text));
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3123 "test.tab.c"
+#line 3156 "test.tab.c"
     break;
 
   case 35: /* write: WRITE OPENPAR CHAR CLOSEPAR  */
-#line 972 "test.y"
+#line 1005 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3132,17 +3165,19 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup((yyvsp[-1].text));
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													free((yyvsp[-1].text));
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3142 "test.tab.c"
+#line 3177 "test.tab.c"
     break;
 
   case 36: /* writeln: WRITELN OPENPAR mathop CLOSEPAR  */
-#line 991 "test.y"
+#line 1026 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3152,16 +3187,18 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3161 "test.tab.c"
+#line 3198 "test.tab.c"
     break;
 
   case 37: /* writeln: WRITELN OPENPAR STRING CLOSEPAR  */
-#line 1006 "test.y"
+#line 1043 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3170,17 +3207,19 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = strdup((yyvsp[-1].text));
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													free((yyvsp[-1].text));
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3180 "test.tab.c"
+#line 3219 "test.tab.c"
     break;
 
   case 38: /* return: RETURN comparison  */
-#line 1029 "test.y"
+#line 1068 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3190,15 +3229,17 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 													//free($3);
 												}
-#line 3198 "test.tab.c"
+#line 3239 "test.tab.c"
     break;
 
   case 39: /* return: RETURN mathop  */
-#line 1042 "test.y"
+#line 1083 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3208,15 +3249,17 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 													//free($3);
 												}
-#line 3216 "test.tab.c"
+#line 3259 "test.tab.c"
     break;
 
   case 40: /* return: RETURN  */
-#line 1055 "test.y"
+#line 1098 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3225,15 +3268,17 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[0].text) = NULL;
 													//free($2);
 												}
-#line 3233 "test.tab.c"
+#line 3278 "test.tab.c"
     break;
 
   case 41: /* $@2: %empty  */
-#line 1070 "test.y"
+#line 1115 "test.y"
                                                                                                                                                         {
 																													escopoCounter++;
 																													Push(pilhaEscopo,CriarStack(escopoCounter));
@@ -3245,11 +3290,11 @@ yyreduce:
 																													
 																													
 																												}
-#line 3249 "test.tab.c"
+#line 3294 "test.tab.c"
     break;
 
   case 42: /* for: FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR $@2 OPENCURLY statement CLOSECURLY  */
-#line 1081 "test.y"
+#line 1126 "test.y"
                                                                                                                                                                                                 {
 																													no* ancora = (no*)malloc(sizeof(no));
 																													(*ancora).filhos[0] = (yyvsp[-9].node);
@@ -3263,26 +3308,28 @@ yyreduce:
 																													(*ancora).refereTabela = NULL;
 																													(*ancora).valor = NULL;
 																													(*ancora).filhos[3] = (yyvsp[-1].node);
+																													(*ancora).conversion = None;
+																													(*ancora).tipoVirtual = 0;
 																													(yyvsp[0].text) = NULL;
 																													(yyvsp[-2].text) = NULL;
 																													(yyval.node) = ancora;
 																													Pop(pilhaEscopo);
 																												}
-#line 3272 "test.tab.c"
+#line 3319 "test.tab.c"
     break;
 
   case 43: /* $@3: %empty  */
-#line 1104 "test.y"
+#line 1151 "test.y"
                                                                                                                                                                                                                         {
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
 																												
 																											}
-#line 3282 "test.tab.c"
+#line 3329 "test.tab.c"
     break;
 
   case 44: /* if: IF OPENPAR comparison CLOSEPAR OPENCURLY $@3 statement CLOSECURLY else  */
-#line 1109 "test.y"
+#line 1156 "test.y"
                                                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-6].node);
@@ -3298,15 +3345,17 @@ yyreduce:
 																												(*ancora).tipo = YYSYMBOL_if;
 																												(*ancora).filhos[1] = (yyvsp[-2].node);
 																												(*ancora).filhos[2] = (yyvsp[0].node);
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												(yyvsp[-1].text) = NULL;
 																												Pop(pilhaEscopo);
 																												(yyval.node) = ancora;
 																											}
-#line 3306 "test.tab.c"
+#line 3355 "test.tab.c"
     break;
 
   case 45: /* if: IF OPENPAR comparison CLOSEPAR single_line_statement else  */
-#line 1128 "test.y"
+#line 1177 "test.y"
                                                                                                                                                         {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-3].node);
@@ -3318,26 +3367,28 @@ yyreduce:
 																												(*ancora).nome = strdup(ancora2);
 																												(*ancora).refereTabela = NULL;
 																												(*ancora).valor = NULL;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												(yyval.node) = ancora;
 																												(yyvsp[-5].text) = NULL;
 																												(yyvsp[-4].text) = NULL;
 																												(yyvsp[-2].text) = NULL;
 																											}
-#line 3327 "test.tab.c"
+#line 3378 "test.tab.c"
     break;
 
   case 46: /* $@4: %empty  */
-#line 1145 "test.y"
+#line 1196 "test.y"
                                                                                                                                                                                                                         {
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
 																												
 																											}
-#line 3337 "test.tab.c"
+#line 3388 "test.tab.c"
     break;
 
   case 47: /* if: IF OPENPAR error CLOSEPAR OPENCURLY $@4 statement CLOSECURLY else  */
-#line 1150 "test.y"
+#line 1201 "test.y"
                                                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(yyvsp[-8].text) = NULL;
@@ -3352,16 +3403,18 @@ yyreduce:
 																												(*ancora).tipo = YYSYMBOL_if;
 																												(*ancora).filhos[0] = (yyvsp[-2].node);
 																												(*ancora).filhos[1] = (yyvsp[0].node);
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												(yyvsp[-1].text) = NULL;
 																												Pop(pilhaEscopo);
 																												(yyval.node) = ancora;
 																												yyerrok;
 																											}
-#line 3361 "test.tab.c"
+#line 3414 "test.tab.c"
     break;
 
   case 48: /* if: IF OPENPAR error CLOSEPAR single_line_statement else  */
-#line 1169 "test.y"
+#line 1222 "test.y"
                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3372,17 +3425,19 @@ yyreduce:
 																												(*ancora).nome = strdup(ancora2);
 																												(*ancora).refereTabela = NULL;
 																												(*ancora).valor = NULL;
+																												(*ancora).conversion = None;
+																												(*ancora).tipoVirtual = 0;
 																												(yyval.node) = ancora;
 																												(yyvsp[-5].text) = NULL;
 																												(yyvsp[-4].text) = NULL;
 																												(yyvsp[-2].text) = NULL;
 																												yyerrok;
 																											}
-#line 3382 "test.tab.c"
+#line 3437 "test.tab.c"
     break;
 
   case 49: /* else: ELSE if  */
-#line 1188 "test.y"
+#line 1243 "test.y"
                                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3392,14 +3447,16 @@ yyreduce:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														(yyval.node) = ancora;
 														free((yyvsp[-1].text));
 													}
-#line 3399 "test.tab.c"
+#line 3456 "test.tab.c"
     break;
 
   case 50: /* else: ELSE single_line_statement  */
-#line 1200 "test.y"
+#line 1257 "test.y"
                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3409,25 +3466,27 @@ yyreduce:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														(yyval.node) = ancora;
 														(yyvsp[-1].text) = NULL;
 													}
-#line 3416 "test.tab.c"
+#line 3475 "test.tab.c"
     break;
 
   case 51: /* $@5: %empty  */
-#line 1212 "test.y"
+#line 1271 "test.y"
                                                                                         {
 														escopoCounter++;
 														Push(pilhaEscopo,CriarStack(escopoCounter));
 														(yyvsp[-1].text) = NULL;
 														(yyvsp[0].text) = NULL;
 													}
-#line 3427 "test.tab.c"
+#line 3486 "test.tab.c"
     break;
 
   case 52: /* else: ELSE OPENCURLY $@5 statement CLOSECURLY  */
-#line 1218 "test.y"
+#line 1277 "test.y"
                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3437,15 +3496,17 @@ yyreduce:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														(yyval.node) = ancora;
 														(yyvsp[0].text) = NULL;
 														Pop(pilhaEscopo);
 													}
-#line 3445 "test.tab.c"
+#line 3506 "test.tab.c"
     break;
 
   case 53: /* else: %empty  */
-#line 1231 "test.y"
+#line 1292 "test.y"
                                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).numFilhos = 0;
@@ -3454,13 +3515,15 @@ yyreduce:
 														(*ancora).tipo = YYSYMBOL_else;
 														(*ancora).refereTabela = NULL;
 														(*ancora).valor = NULL;
+														(*ancora).conversion = None;
+														(*ancora).tipoVirtual = 0;
 														(yyval.node) = ancora;
 													}
-#line 3460 "test.tab.c"
+#line 3523 "test.tab.c"
     break;
 
   case 54: /* conjuntoop: pertinencia  */
-#line 1244 "test.y"
+#line 1307 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3470,13 +3533,15 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3476 "test.tab.c"
+#line 3541 "test.tab.c"
     break;
 
   case 55: /* conjuntoop: tipagem  */
-#line 1255 "test.y"
+#line 1320 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3486,13 +3551,15 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3492 "test.tab.c"
+#line 3559 "test.tab.c"
     break;
 
   case 56: /* conjuntoop: inclusao  */
-#line 1266 "test.y"
+#line 1333 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3502,148 +3569,166 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3508 "test.tab.c"
+#line 3577 "test.tab.c"
     break;
 
   case 57: /* conjuntoop: remocao  */
-#line 1277 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop;
-													char ancora2[] = "remocao";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3524 "test.tab.c"
-    break;
-
-  case 58: /* conjuntoop: selecao  */
-#line 1288 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop;
-													char ancora2[] = "selecao";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3540 "test.tab.c"
-    break;
-
-  case 59: /* conjuntoop1: pertinencia  */
-#line 1302 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop1;
-													char ancora2[] = "pertinencia";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3556 "test.tab.c"
-    break;
-
-  case 60: /* conjuntoop1: tipagem  */
-#line 1313 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop1;
-													char ancora2[] = "tipagem";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3572 "test.tab.c"
-    break;
-
-  case 61: /* conjuntoop1: inclusao  */
-#line 1324 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop1;
-													char ancora2[] = "inclusao";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3588 "test.tab.c"
-    break;
-
-  case 62: /* conjuntoop1: remocao  */
-#line 1335 "test.y"
-                                                                                        {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 1;
-													(*ancora).filhos[0] = (yyvsp[0].node);
-													(*ancora).tipo = YYSYMBOL_conjuntoop1;
-													char ancora2[] = "remocao";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
-													(*ancora).valor = NULL;
-													(yyval.node) = ancora;
-												}
-#line 3604 "test.tab.c"
-    break;
-
-  case 63: /* conjuntoop1: selecao  */
 #line 1346 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
 													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop;
+													char ancora2[] = "remocao";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3595 "test.tab.c"
+    break;
+
+  case 58: /* conjuntoop: selecao  */
+#line 1359 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop;
+													char ancora2[] = "selecao";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3613 "test.tab.c"
+    break;
+
+  case 59: /* conjuntoop1: pertinencia  */
+#line 1375 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop1;
+													char ancora2[] = "pertinencia";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3631 "test.tab.c"
+    break;
+
+  case 60: /* conjuntoop1: tipagem  */
+#line 1388 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop1;
+													char ancora2[] = "tipagem";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3649 "test.tab.c"
+    break;
+
+  case 61: /* conjuntoop1: inclusao  */
+#line 1401 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop1;
+													char ancora2[] = "inclusao";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3667 "test.tab.c"
+    break;
+
+  case 62: /* conjuntoop1: remocao  */
+#line 1414 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
+													(*ancora).tipo = YYSYMBOL_conjuntoop1;
+													char ancora2[] = "remocao";
+													(*ancora).nome = strdup(ancora2);
+													(*ancora).refereTabela = NULL;
+													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
+													(yyval.node) = ancora;
+												}
+#line 3685 "test.tab.c"
+    break;
+
+  case 63: /* conjuntoop1: selecao  */
+#line 1427 "test.y"
+                                                                                        {
+													no* ancora = (no*)malloc(sizeof(no));
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = (yyvsp[0].node);
 													(*ancora).tipo = YYSYMBOL_conjuntoop1;
 													char ancora2[] = "selecao";
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3620 "test.tab.c"
+#line 3703 "test.tab.c"
     break;
 
   case 64: /* conjuntoop1: ID  */
-#line 1357 "test.y"
+#line 1440 "test.y"
                                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
 													(*ancora).tipo = YYSYMBOL_conjuntoop1;
 													char ancora2[] = "ID";
 													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = ProcurarTabela((yyvsp[0].text));
-													if(ancoraSimb != NULL){
+													simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
+													if(ancoraSimb != NULL){ 
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-														printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[0].text));
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
+														(*ancora).refereTabela = NULL;
 													}
 													(*ancora).valor = strdup((yyvsp[0].text));
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													free((yyvsp[0].text));
 													(yyval.node) = ancora;
 												}
-#line 3643 "test.tab.c"
+#line 3728 "test.tab.c"
     break;
 
   case 65: /* pertinencia: mathop IN conjuntoop1  */
-#line 1378 "test.y"
+#line 1463 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -3654,14 +3739,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3661 "test.tab.c"
+#line 3748 "test.tab.c"
     break;
 
   case 66: /* pertinencia: selecao IN conjuntoop1  */
-#line 1391 "test.y"
+#line 1478 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -3672,14 +3759,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3679 "test.tab.c"
+#line 3768 "test.tab.c"
     break;
 
   case 67: /* tipagem: IS_SET OPENPAR conjuntoop1 CLOSEPAR  */
-#line 1407 "test.y"
+#line 1496 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3689,16 +3778,18 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3698 "test.tab.c"
+#line 3789 "test.tab.c"
     break;
 
   case 68: /* inclusao: ADD OPENPAR pertinencia CLOSEPAR  */
-#line 1424 "test.y"
+#line 1515 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3708,16 +3799,18 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3717 "test.tab.c"
+#line 3810 "test.tab.c"
     break;
 
   case 69: /* remocao: REMOVE OPENPAR pertinencia CLOSEPAR  */
-#line 1441 "test.y"
+#line 1534 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3727,16 +3820,18 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3736 "test.tab.c"
+#line 3831 "test.tab.c"
     break;
 
   case 70: /* selecao: EXISTS OPENPAR pertinencia CLOSEPAR  */
-#line 1459 "test.y"
+#line 1554 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3746,26 +3841,28 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).conversion = None;
+													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 													(yyvsp[-3].text) = NULL;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3755 "test.tab.c"
+#line 3852 "test.tab.c"
     break;
 
   case 71: /* $@6: %empty  */
-#line 1477 "test.y"
+#line 1574 "test.y"
                                                                                                                                                         {
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																				
 																			}
-#line 3765 "test.tab.c"
+#line 3862 "test.tab.c"
     break;
 
   case 72: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR OPENCURLY $@6 statement CLOSECURLY  */
-#line 1482 "test.y"
+#line 1579 "test.y"
                                                                                                                                 {
 		 																		(yyvsp[-7].text) = NULL;
 																				(yyvsp[-6].text) = NULL;
@@ -3780,15 +3877,17 @@ yyreduce:
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
 																				(*ancora).filhos[1] = (yyvsp[-1].node);
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyvsp[0].text) = NULL;
 																				Pop(pilhaEscopo);
 																				(yyval.node) = ancora;
 																			}
-#line 3788 "test.tab.c"
+#line 3887 "test.tab.c"
     break;
 
   case 73: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR single_line_statement  */
-#line 1500 "test.y"
+#line 1599 "test.y"
                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 2;
@@ -3799,26 +3898,28 @@ yyreduce:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyval.node) = ancora;
 																				(yyvsp[-4].text) = NULL;
 																				(yyvsp[-3].text) = NULL;
 																				(yyvsp[-1].text) = NULL;
 																			}
-#line 3808 "test.tab.c"
+#line 3909 "test.tab.c"
     break;
 
   case 74: /* $@7: %empty  */
-#line 1516 "test.y"
+#line 1617 "test.y"
                                                                                                                                                         {
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																				
 																			}
-#line 3818 "test.tab.c"
+#line 3919 "test.tab.c"
     break;
 
   case 75: /* iteracao: FORALL OPENPAR error CLOSEPAR OPENCURLY $@7 statement CLOSECURLY  */
-#line 1521 "test.y"
+#line 1622 "test.y"
                                                                                                                                 {
 		 																		(yyvsp[-7].text) = NULL;
 																				(yyvsp[-6].text) = NULL;
@@ -3832,16 +3933,18 @@ yyreduce:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyvsp[0].text) = NULL;
 																				Pop(pilhaEscopo);
 																				(yyval.node) = ancora;
 																				yyerrok;
 																			}
-#line 3841 "test.tab.c"
+#line 3944 "test.tab.c"
     break;
 
   case 76: /* iteracao: FORALL OPENPAR error CLOSEPAR single_line_statement  */
-#line 1539 "test.y"
+#line 1642 "test.y"
                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -3851,17 +3954,19 @@ yyreduce:
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).refereTabela = NULL;
 																				(*ancora).valor = NULL;
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyval.node) = ancora;
 																				(yyvsp[-4].text) = NULL;
 																				(yyvsp[-3].text) = NULL;
 																				(yyvsp[-1].text) = NULL;
 																				yyerrok;
 																			}
-#line 3861 "test.tab.c"
+#line 3966 "test.tab.c"
     break;
 
   case 77: /* function_call: ID OPENPAR args CLOSEPAR  */
-#line 1557 "test.y"
+#line 1662 "test.y"
                                                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -3870,24 +3975,26 @@ yyreduce:
 																				char ancora2[] = "function_call";
 																				(*ancora).nome = strdup(ancora2);
 																				(*ancora).valor = strdup((yyvsp[-3].text));
-																				simbolo *ancoraSimb = ProcurarTabela((yyvsp[-3].text));
-																				if(ancoraSimb != NULL){
+																				simbolo *ancoraSimb = VerificarEscopo((yyvsp[-3].text));
+																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
-																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[-3].text));
+																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-3].text));
+																					(*ancora).refereTabela = NULL;
 																				}
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyval.node) = ancora;
 																				(yyvsp[-3].text) = NULL;
 																				(yyvsp[-2].text) = NULL;
 																				(yyvsp[0].text) = NULL;
 																			}
-#line 3887 "test.tab.c"
+#line 3994 "test.tab.c"
     break;
 
   case 78: /* args: ID args1  */
-#line 1588 "test.y"
+#line 1695 "test.y"
                                                 {
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
@@ -3895,24 +4002,25 @@ yyreduce:
 								(*ancora).tipo = YYSYMBOL_args;
 								char ancora2[] = "ID";
 								(*ancora).nome = strdup(ancora2);
-								simbolo *ancoraSimb = ProcurarTabela((yyvsp[-1].text));
-								if(ancoraSimb != NULL){
+								simbolo *ancoraSimb = VerificarEscopo((yyvsp[-1].text));
+								if(ancoraSimb != NULL){ 
 									(*ancora).refereTabela = ancoraSimb;
 								}
 								else{
-									//(*ancora).refereTabela = CriarSimbolo($1,FUNC_TABLE,NULL);
-									printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[-1].text));
-
+									printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-1].text));
+									(*ancora).refereTabela = NULL;
 								}
 								(*ancora).valor = strdup((yyvsp[-1].text));
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								free((yyvsp[-1].text));
 								(yyval.node) = ancora;
 							}
-#line 3912 "test.tab.c"
+#line 4020 "test.tab.c"
     break;
 
   case 79: /* args: NUM args1  */
-#line 1608 "test.y"
+#line 1716 "test.y"
                                                 {	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
@@ -3922,14 +4030,16 @@ yyreduce:
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
 								(*ancora).valor = strdup((yyvsp[-1].text));
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								free((yyvsp[-1].text));
 								(yyval.node) = ancora;
 							}
-#line 3929 "test.tab.c"
+#line 4039 "test.tab.c"
     break;
 
   case 80: /* args: function_call args1  */
-#line 1620 "test.y"
+#line 1730 "test.y"
                                     {	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 2;
@@ -3939,13 +4049,15 @@ yyreduce:
 								char ancora2[] = "function_call";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								(yyval.node) = ancora;
 							}
-#line 3945 "test.tab.c"
+#line 4057 "test.tab.c"
     break;
 
   case 81: /* args: error args1  */
-#line 1631 "test.y"
+#line 1743 "test.y"
                                         {	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
@@ -3954,14 +4066,16 @@ yyreduce:
 								char ancora2[] = "ERROR";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
+								(*ancora).conversion = None;
+								(*ancora).tipoVirtual = 0;
 								(yyval.node) = ancora;
 								yyerrok;
 							}
-#line 3961 "test.tab.c"
+#line 4075 "test.tab.c"
     break;
 
   case 82: /* args1: COMMA args  */
-#line 1645 "test.y"
+#line 1759 "test.y"
                                         {
 							no* ancora = (no*)malloc(sizeof(no));
 							(*ancora).numFilhos = 1;
@@ -3971,14 +4085,16 @@ yyreduce:
 							(*ancora).nome = strdup(ancora2);
 							(*ancora).refereTabela = NULL;
 							(*ancora).valor = NULL;
+							(*ancora).conversion = None;
+							(*ancora).tipoVirtual = 0;
 							(yyval.node) = ancora;
 							(yyvsp[-1].text) = NULL;
 						}
-#line 3978 "test.tab.c"
+#line 4094 "test.tab.c"
     break;
 
   case 83: /* args1: %empty  */
-#line 1657 "test.y"
+#line 1773 "test.y"
                                         {
 							no* ancora = (no*)malloc(sizeof(no));
 							(*ancora).numFilhos = 0;
@@ -3987,13 +4103,15 @@ yyreduce:
 							(*ancora).tipo = YYSYMBOL_args1;
 							(*ancora).refereTabela = NULL;
 							(*ancora).valor = NULL;
+							(*ancora).conversion = None;
+							(*ancora).tipoVirtual = 0;
 							(yyval.node) = ancora;
 						}
-#line 3993 "test.tab.c"
+#line 4111 "test.tab.c"
     break;
 
   case 84: /* funcargs: type ID  */
-#line 1670 "test.y"
+#line 1788 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 1;
@@ -4001,23 +4119,25 @@ yyreduce:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									char ancora2[] = "single";
 									(*ancora).nome = strdup(ancora2);
-									simbolo *ancoraSimb = ProcurarTabela((yyvsp[0].text));
-									if(ancoraSimb != NULL){
+									simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
+									if(ancoraSimb != NULL){ 
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
-										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[0].text));
+										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
+										(*ancora).refereTabela = NULL;
 									}
 									(*ancora).valor = strdup((yyvsp[0].text));
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									free((yyvsp[0].text));
 									(yyval.node) = ancora;
 								}
-#line 4017 "test.tab.c"
+#line 4137 "test.tab.c"
     break;
 
   case 85: /* funcargs: type ID COMMA funcargs  */
-#line 1689 "test.y"
+#line 1809 "test.y"
                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 2;
@@ -4027,24 +4147,26 @@ yyreduce:
 									char ancora2[] = "comma";
 									(*ancora).nome = strdup(ancora2);
 									//printf("\n\nOI %s OI\n\n",$2);
-									simbolo *ancoraSimb = ProcurarTabela((yyvsp[-2].text));
-									if(ancoraSimb != NULL){
+									simbolo *ancoraSimb = VerificarEscopo((yyvsp[-2].text));
+									if(ancoraSimb != NULL){ 
 										(*ancora).refereTabela = ancoraSimb;
 									}
 									else{
-										//(*ancora).refereTabela = CriarSimbolo($2,0,NULL);
-										printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[-2].text));
+										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-2].text));
+										(*ancora).refereTabela = NULL;
 									}
 									(*ancora).valor = strdup((yyvsp[-2].text));
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									free((yyvsp[-2].text));
 									(yyvsp[-1].text) = NULL;
 									(yyval.node) = ancora;
 								}
-#line 4044 "test.tab.c"
+#line 4166 "test.tab.c"
     break;
 
   case 86: /* funcargs: %empty  */
-#line 1711 "test.y"
+#line 1833 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 0;
@@ -4053,13 +4175,15 @@ yyreduce:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									(*ancora).refereTabela = NULL;
 									(*ancora).valor = NULL;
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									(yyval.node) = ancora;
 								}
-#line 4059 "test.tab.c"
+#line 4183 "test.tab.c"
     break;
 
   case 87: /* funcargs: error  */
-#line 1721 "test.y"
+#line 1845 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 0;
@@ -4068,23 +4192,25 @@ yyreduce:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									(*ancora).refereTabela = NULL;
 									(*ancora).valor = NULL;
+									(*ancora).conversion = None;
+									(*ancora).tipoVirtual = 0;
 									(yyval.node) = ancora;
 									yyerrok;
 								}
-#line 4075 "test.tab.c"
+#line 4201 "test.tab.c"
     break;
 
   case 88: /* $@8: %empty  */
-#line 1737 "test.y"
+#line 1863 "test.y"
                                                                                                                                                         {
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																			}
-#line 4084 "test.tab.c"
+#line 4210 "test.tab.c"
     break;
 
   case 89: /* function_declaration: type ID OPENPAR funcargs CLOSEPAR OPENCURLY $@8 statement CLOSECURLY  */
-#line 1741 "test.y"
+#line 1867 "test.y"
                                                                                                                                 {
 																				(yyvsp[-6].text) = NULL;
 																				(yyvsp[-4].text) = NULL;
@@ -4108,15 +4234,17 @@ yyreduce:
 																				(*ancora).valor = strdup((yyvsp[-7].text));
 																				free((yyvsp[-7].text));
 																				(*ancora).filhos[2] = (yyvsp[-1].node);
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				(yyvsp[0].text) = NULL;
 																				Pop(pilhaEscopo);
 																				(yyval.node) = ancora;
 																			}
-#line 4116 "test.tab.c"
+#line 4244 "test.tab.c"
     break;
 
   case 90: /* assignment: ID ASSIGN mathop  */
-#line 1772 "test.y"
+#line 1900 "test.y"
                                                                                                                                         {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -4124,24 +4252,26 @@ yyreduce:
 																				(*ancora).filhos[0] = (yyvsp[0].node);
 																				char ancora2[] = "ID";
 																				(*ancora).nome = strdup(ancora2);
-																				simbolo *ancoraSimb = ProcurarTabela((yyvsp[-2].text));
-																				if(ancoraSimb != NULL){
+																				simbolo *ancoraSimb = VerificarEscopo((yyvsp[-2].text));
+																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
 																				}
 																				else{
-																					//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-																					printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[-2].text));
+																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-2].text));
+																					(*ancora).refereTabela = NULL;
 																				}
 																				(*ancora).valor = strdup((yyvsp[-2].text));
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
 																				free((yyvsp[-2].text));
 																				(yyvsp[-1].text) = NULL;
 																				(yyval.node) = ancora;
 																			}
-#line 4141 "test.tab.c"
+#line 4271 "test.tab.c"
     break;
 
   case 91: /* variable_declaration: type ID  */
-#line 1795 "test.y"
+#line 1925 "test.y"
                                                                                                                                         {
 																			no* ancora = (no*)malloc(sizeof(no));
 																			(*ancora).numFilhos = 1;
@@ -4158,14 +4288,16 @@ yyreduce:
 																				(*ancora).refereTabela = CriarSimbolo((yyvsp[0].text),atoi(((no*)(yyvsp[-1].node))->valor),NULL,escopoCounter);
 																			}
 																			(*ancora).valor = strdup((yyvsp[0].text));
+																			(*ancora).conversion = None;
+																			(*ancora).tipoVirtual = 0;
 																			free((yyvsp[0].text));
 																			(yyval.node) = ancora;
 																		}
-#line 4165 "test.tab.c"
+#line 4297 "test.tab.c"
     break;
 
   case 92: /* variable_declaration: type error  */
-#line 1814 "test.y"
+#line 1946 "test.y"
                                                                                                                                                 {
 																			no* ancora = (no*)malloc(sizeof(no));
 																			(*ancora).numFilhos = 1;
@@ -4175,14 +4307,16 @@ yyreduce:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			(*ancora).refereTabela = NULL;
 																			(*ancora).valor = NULL;
+																			(*ancora).conversion = None;
+																			(*ancora).tipoVirtual = 0;
 																			(yyval.node) = ancora;
 																			yyerrok;
 																		}
-#line 4182 "test.tab.c"
+#line 4316 "test.tab.c"
     break;
 
   case 93: /* mathop: mathop PLUS mathop1  */
-#line 1833 "test.y"
+#line 1967 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4193,14 +4327,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4200 "test.tab.c"
+#line 4336 "test.tab.c"
     break;
 
   case 94: /* mathop: mathop MINUS mathop1  */
-#line 1846 "test.y"
+#line 1982 "test.y"
                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4211,14 +4347,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4218 "test.tab.c"
+#line 4356 "test.tab.c"
     break;
 
   case 95: /* mathop: mathop1  */
-#line 1859 "test.y"
+#line 1997 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4228,13 +4366,15 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 									}
-#line 4234 "test.tab.c"
+#line 4374 "test.tab.c"
     break;
 
   case 96: /* mathop1: mathop1 AST mathop2  */
-#line 1873 "test.y"
+#line 2013 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4245,14 +4385,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4252 "test.tab.c"
+#line 4394 "test.tab.c"
     break;
 
   case 97: /* mathop1: mathop1 BS mathop2  */
-#line 1886 "test.y"
+#line 2028 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4263,14 +4405,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4270 "test.tab.c"
+#line 4414 "test.tab.c"
     break;
 
   case 98: /* mathop1: mathop2  */
-#line 1899 "test.y"
+#line 2043 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4280,13 +4424,15 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 									}
-#line 4286 "test.tab.c"
+#line 4432 "test.tab.c"
     break;
 
   case 99: /* mathop2: matharg  */
-#line 1914 "test.y"
+#line 2060 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4296,13 +4442,15 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop2;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 									}
-#line 4302 "test.tab.c"
+#line 4450 "test.tab.c"
     break;
 
   case 100: /* mathop2: OPENPAR mathop CLOSEPAR  */
-#line 1925 "test.y"
+#line 2073 "test.y"
                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4312,38 +4460,42 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop2;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[-2].text) = NULL;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4320 "test.tab.c"
+#line 4470 "test.tab.c"
     break;
 
   case 101: /* matharg: ID  */
-#line 1941 "test.y"
+#line 2091 "test.y"
                                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
 										(*ancora).tipo = YYSYMBOL_matharg;
 										char ancora2[] = "ID";
 										(*ancora).nome = strdup(ancora2);
-										simbolo *ancoraSimb = ProcurarTabela((yyvsp[0].text));
-										if(ancoraSimb != NULL){
+										simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
+										if(ancoraSimb != NULL){ 
 											(*ancora).refereTabela = ancoraSimb;
 										}
 										else{
-											//(*ancora).refereTabela = CriarSimbolo($1,0,NULL);
-											printf("ERRO SEMANTICO! ID %s USADO ANTES DE SER DECLARADO!\n",(yyvsp[0].text));
+											printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
+											(*ancora).refereTabela = NULL;
 										}
 										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										free((yyvsp[0].text));
 										(yyval.node) = ancora;																
 									}
-#line 4343 "test.tab.c"
+#line 4495 "test.tab.c"
     break;
 
   case 102: /* matharg: NUM  */
-#line 1960 "test.y"
+#line 2112 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4352,14 +4504,16 @@ yyreduce:
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).valor = strdup((yyvsp[0].text));
 										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										free((yyvsp[0].text));
 										(yyval.node) = ancora;																
 									}
-#line 4359 "test.tab.c"
+#line 4513 "test.tab.c"
     break;
 
   case 103: /* matharg: function_call  */
-#line 1971 "test.y"
+#line 2125 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4369,13 +4523,15 @@ yyreduce:
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).valor = NULL;
 										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;																
 									}
-#line 4375 "test.tab.c"
+#line 4531 "test.tab.c"
     break;
 
   case 104: /* type: SET  */
-#line 1985 "test.y"
+#line 2141 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4386,14 +4542,16 @@ yyreduce:
 										char ancora3[2];
 										sprintf(ancora3,"%d",SET_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4393 "test.tab.c"
+#line 4551 "test.tab.c"
     break;
 
   case 105: /* type: INT  */
-#line 1998 "test.y"
+#line 2156 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4404,14 +4562,16 @@ yyreduce:
 										char ancora3[2];
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4411 "test.tab.c"
+#line 4571 "test.tab.c"
     break;
 
   case 106: /* type: ELEM  */
-#line 2011 "test.y"
+#line 2171 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4422,14 +4582,16 @@ yyreduce:
 										char ancora3[2];
 										sprintf(ancora3,"%d",ELEM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4429 "test.tab.c"
+#line 4591 "test.tab.c"
     break;
 
   case 107: /* type: FLOAT  */
-#line 2024 "test.y"
+#line 2186 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4440,14 +4602,16 @@ yyreduce:
 										char ancora3[2];
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = 0;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4447 "test.tab.c"
+#line 4611 "test.tab.c"
     break;
 
 
-#line 4451 "test.tab.c"
+#line 4615 "test.tab.c"
 
         default: break;
       }
@@ -4683,7 +4847,7 @@ yyreturn:
   return yyresult;
 }
 
-#line 2039 "test.y"
+#line 2203 "test.y"
 
 /*
 void yyerror(char *s){
@@ -4722,10 +4886,13 @@ int main(int argc, char **argv){
 	yyparse();
 	fclose(yyin);
 	EscreverTabela();
+	printf("--------------------ARVORE SINTATICA-------------------\n");
 	EscreverArvore(raiz,1);
 	//yylex_destroy();
 	ApagarTabela();
 	LimparStack(pilhaEscopo);
+	
+	yylex_destroy();
 	return 0;
 }
 
