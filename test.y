@@ -110,6 +110,9 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma fun√
 		else if(tipo1 == Float && tipo2 == Int){
 			return FloatToIntLeft;
 		}
+		else if(tipo1 == Float && tipo2 == Float){
+			return FloatToIntBoth;
+		}
 		else if(tipo1 == Elem && tipo2 != Elem){
 			return ElemToIntLeft;
 		}
@@ -126,6 +129,9 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma fun√
 		}
 		else if(tipo1 == Float && tipo2 == Int){
 			return IntToFloatRight;
+		}
+		else if(tipo1 == Int && tipo2 == Int){
+			return IntToFloatBoth;
 		}
 		else if(tipo1 == Elem && tipo2 != Elem){
 			return ElemToFloatLeft;
@@ -290,11 +296,17 @@ void EscreverArvore(no* argumento,int profund){
 			case IntToFloatRight:
 				printf("|Typecast right arg from Int to Float");
 			break;
+			case IntToFloatBoth:
+				printf("|Typecast both args from Int to Float");
+			break;
 			case FloatToIntLeft:
 				printf("|Typecast left arg from Float to Int");
 			break;
 			case FloatToIntRight:
 				printf("|Typecast right arg from Float to Int");
+			break;
+			case FloatToIntBoth:
+				printf("|Typecast both args from Float to Int");
 			break;
 			case ElemToIntLeft:
 				printf("|Typecast left arg from Elem to Int");

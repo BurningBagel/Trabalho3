@@ -1,4 +1,4 @@
-enum typeConversion{None, IntToFloatLeft, IntToFloatRight, FloatToIntLeft, FloatToIntRight, ElemToIntLeft, ElemToIntRight, ElemToFloatLeft, ElemToFloatRight, ElemToIntBoth, ElemToFloatBoth};
+enum typeConversion{None, IntToFloatLeft, IntToFloatRight, IntToFloatBoth, FloatToIntLeft, FloatToIntRight, FloatToIntBoth, ElemToIntLeft, ElemToIntRight, ElemToFloatLeft, ElemToFloatRight, ElemToIntBoth, ElemToFloatBoth};
 
 enum typeVirtual{Untyped, Void, Int, Float, Elem, Set};
 
