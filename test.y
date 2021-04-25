@@ -140,11 +140,9 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma funÃ
 	else if(tipoAlvo == Elem){
 		return None;
 	}
-	else {
-		printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
-		return 99;
-	}
-
+	
+	printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
+	return 99;
 
 }
 
@@ -252,7 +250,7 @@ void EscreverTabela(){
 			printf("variavel de numero float|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == FUNC_TABLE){
-			ancoraString = ConverteRetornoTipoString((*ancora).returnType)
+			ancoraString = ConverteRetornoTipoString((*ancora).returnType);
 			printf("funcao|Tipo de retorno: %s|Escopo: %d\n",ancoraString,(*ancora).escopo);
 			free(ancoraString);
 		}
@@ -1946,7 +1944,7 @@ funcargs:
 									(*ancora).tipo = YYSYMBOL_funcargs;
 									char ancora2[] = "single";
 									(*ancora).nome = strdup(ancora2);
-									simbolo *ancoraSimb = VerificarEscopo($2);
+									//simbolo *ancoraSimb = VerificarEscopo($2);
 									(*ancora).valor = strdup($2);
 									(*ancora).refereTabela = CriarSimbolo($2,atoi(((no*)$1)->valor),NULL,escopoCounter);
 									
@@ -2050,10 +2048,9 @@ function_declaration:
 																				$9 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
 																				int realEscopo;
-																				(*ancora).numFilhos = 3;
-																				(*ancora).filhos[0] = $1;
-																				(*ancora).filhos[1] = $5;
-																				(*ancora).filhos[2] = $8;
+																				(*ancora).numFilhos = 2;
+																				(*ancora).filhos[0] = $5;
+																				(*ancora).filhos[1] = $8;
 																				(*ancora).tipo = YYSYMBOL_function_declaration;
 																				char ancora2[] = "function_declaration";
 																				(*ancora).nome = strdup(ancora2);
@@ -2108,7 +2105,7 @@ variable_declaration:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			char ancora2[] = "variable_declaration";
 																			(*ancora).nome = strdup(ancora2);
-																			simbolo *ancoraSimb = ProcurarTabelaEscopo($2);
+																			simbolo *ancoraSimb = VerificarEscopo($2,(Top(pilhaEscopo)->valor));
 																			if(ancoraSimb != NULL){
 																				printf("ERRO SEMANTICO! VARIAVEL %s REDECLARADA! LINHA: %d, COLUNA: %d\n",$2,linhaCount,colunaCount);
 																			}
@@ -2294,7 +2291,7 @@ matharg:
 										(*ancora).tipo = YYSYMBOL_matharg;
 										char ancora2[] = "num";
 										(*ancora).nome = strdup(ancora2);
-										(*ancora).valor = strdup($1);
+										(*ancora).valor = NULL;
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
 										(*ancora).tipoVirtual = ($1)->tipoVirtual;
@@ -2354,7 +2351,7 @@ type:
 										(*ancora).tipo = YYSYMBOL_type;
 										(*ancora).refereTabela = NULL;
 										char ancora3[2];
-										sprintf(ancora3,"%d",NUM_TABLE);
+										sprintf(ancora3,"%d",INT_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
 										(*ancora).tipoVirtual = Int;
@@ -2384,7 +2381,7 @@ type:
 										(*ancora).tipo = YYSYMBOL_type;
 										(*ancora).refereTabela = NULL;
 										char ancora3[2];
-										sprintf(ancora3,"%d",NUM_TABLE);
+										sprintf(ancora3,"%d",FLOAT_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
 										(*ancora).tipoVirtual = Float;
@@ -2397,7 +2394,7 @@ num:
 		INTEGER 					{
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
-										char ancora2[] = "integer"
+										char ancora2[] = "integer";
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).tipo = YYSYMBOL_num;
 										(*ancora).refereTabela = NULL;
@@ -2411,7 +2408,7 @@ num:
 	|	FLOATING 					{
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
-										char ancora2[] = "floating"
+										char ancora2[] = "floating";
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).tipo = YYSYMBOL_num;
 										(*ancora).refereTabela = NULL;
