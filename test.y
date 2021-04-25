@@ -37,6 +37,25 @@ pilha* pilhaEscopo;
 
 int escopoCounter;
 
+
+char* ConverteRetornoTipoString(int entrada){
+	char* resultado;
+	if(entrada == Int){
+		resultado = strdup("Inteiro");
+	}
+	else if(entrada == Float){
+		resultado = strdup("Float");
+	}
+	else if(entrada == Elem){
+		resultado = strdup("Elem");
+	}
+	else if(entrada == Set){
+		resultado = strdup("Set");
+	}
+	return resultado;
+}
+
+
 int ConverteRetornoTipo(no* entrada){
 	char* nome = (*entrada).nome;
 
@@ -48,6 +67,9 @@ int ConverteRetornoTipo(no* entrada){
 	}
 	else if(!strcmp(nome,"elem")){
 		return Elem;
+	}
+	else if(!strcmp(nome,"void")){
+		return Void;
 	}
 	else{
 		return Float;
@@ -77,7 +99,7 @@ int ConverteTableTipo(int tipo){
 }
 
 int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma função para decidir se vamos fazer uma conversão de tipos.
-	if(tipo1 == tipo2 == tipoAlvo){
+	if((tipo1 == tipo2) && (tipo2 == tipoAlvo)){
 		return None;
 	}
 
@@ -94,7 +116,7 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma fun�
 		else if(tipo1 != Elem && tipo2 == Elem){
 			return ElemToIntRight;
 		}
-		else if (tipo1 == tipo2 == Elem){
+		else if (tipo1 == Elem && tipo2 == Elem){
 			return ElemToIntBoth;
 		}
 	}
@@ -111,7 +133,7 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma fun�
 		else if(tipo1 != Elem && tipo2 == Elem){
 			return ElemToFloatRight;
 		}
-		else if(tipo1 == tipo2 == Elem){
+		else if((tipo1 == tipo2) && (tipo2 == Elem)){
 			return ElemToFloatBoth;
 		}
 	}
@@ -119,7 +141,7 @@ int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma fun�
 		return None;
 	}
 	else {
-		printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n");
+		printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
 		return 99;
 	}
 
@@ -220,13 +242,19 @@ void EscreverTabela(){
 	printf("-----------TABELA DE SIMBOLOS----------\n");
 	printf("|-------------------------------------|\n");
 	simbolo *ancora = tabelaSimbolos;
+	char* ancoraString;
 	while(ancora != NULL){
 		printf("%s|",(*ancora).nome);
-		if((*ancora).tipo == NUM_TABLE){
-			printf("variavel de numero|Escopo: %d\n",(*ancora).escopo);
+		if((*ancora).tipo == INT_TABLE){
+			printf("variavel de numero inteiro|Escopo: %d\n",(*ancora).escopo);
+		}
+		else if((*ancora).tipo == FLOAT_TABLE){
+			printf("variavel de numero float|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == FUNC_TABLE){
-			printf("funcao|Escopo: %d\n",(*ancora).escopo);
+			ancoraString = ConverteRetornoTipoString((*ancora).returnType)
+			printf("funcao|Tipo de retorno: %s|Escopo: %d\n",ancoraString,(*ancora).escopo);
+			free(ancoraString);
 		}
 		else if((*ancora).tipo == SET_TABLE){
 			printf("variavel de set|Escopo: %d\n",(*ancora).escopo);
@@ -404,6 +432,7 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 %token <text> NOT
 %token <text> AMP
 %token <text> PCENT
+%token <text> VOID
 
 %start	inicio 
 
@@ -440,6 +469,7 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 %type <node> single_line_statement
 %type <node> else
 %type <node> num
+%type <node> function_type
 
 %destructor {$$ = NULL;} <*>
 
@@ -1972,7 +2002,7 @@ funcargs:
 	
 
 function_declaration:
-		type ID  
+		function_type ID  
 																			{ //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
@@ -2262,6 +2292,38 @@ matharg:
 										$$ = ancora;																
 									}
 	;
+
+function_type:
+				type 				{
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 1;
+										(*ancora).filhos[0] = $1;
+										char ancora2[] = "type";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_function_type;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
+										$$ = ancora;
+									}
+
+			|	VOID 				{
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										(*ancora).tipo = YYSYMBOL_function_type;
+										char ancora2[] = "void";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).valor = strdup($1);
+										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Void;
+										$$ = ancora;																
+									}
+
+
+
+
 
 type:
 		SET 						{

@@ -80,6 +80,7 @@ remove		{printf("Achei um remove na linha %d, coluna %d!\n",linhaCount,colunaCou
 exists		{printf("Achei um exists na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return EXISTS;}
 forall		{printf("Achei um forall na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return FORALL;}
 return		{printf("Achei um return na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return RETURN;}
+void		{printf("Achei um void na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return VOID;}
 EMPTY		{printf("Achei um EMPTY na linha %d, coluna %d!\n",linhaCount,colunaCount);colunaCount += yyleng; return EMPTY;}
 {id}		{printf("Achei o id %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return ID;}
 {integer}	{printf("Achei o inteiro %s na linha %d, coluna %d!\n",yytext,linhaCount,colunaCount);colunaCount += yyleng; yylval.text = strdup(yytext); return INTEGER;}
