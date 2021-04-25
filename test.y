@@ -1974,21 +1974,21 @@ funcargs:
 function_declaration:
 		type ID  
 																			{ //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
-
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																			}
 		OPENPAR funcargs CLOSEPAR OPENCURLY statement CLOSECURLY 			{
-																				$3 = NULL;
-																				$5 = NULL;
+																				$4 = NULL;
 																				$6 = NULL;
+																				$7 = NULL;
+																				$9 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
 																				int tipoRetorno = ConverteRetornoTipo($1);
 																				int realEscopo;
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = $1;
-																				(*ancora).filhos[1] = $4;
-																				
+																				(*ancora).filhos[1] = $5;
+																				(*ancora).filhos[2] = $8;
 																				(*ancora).tipo = YYSYMBOL_function_declaration;
 																				char ancora2[] = "function_declaration";
 																				(*ancora).nome = strdup(ancora2);
@@ -2003,10 +2003,8 @@ function_declaration:
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
-																				(*ancora).filhos[2] = $8;
 																				(*ancora).conversion = None;
 																				(*ancora).tipoVirtual = 0;
-																				$9 = NULL;
 																				$$ = ancora;
 																			}
 	;
@@ -2226,7 +2224,8 @@ matharg:
 
 	|	num 						{
 										no* ancora = (no*)malloc(sizeof(no));
-										(*ancora).numFilhos = 0;
+										(*ancora).numFilhos = 1;
+										(*ancora).filhos[0] = $1;
 										(*ancora).tipo = YYSYMBOL_matharg;
 										char ancora2[] = "num";
 										(*ancora).nome = strdup(ancora2);
@@ -2247,6 +2246,19 @@ matharg:
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
 										(*ancora).tipoVirtual = ($1)->tipoVirtual;
+										$$ = ancora;																
+									}
+
+	|	EMPTY 						{
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										(*ancora).tipo = YYSYMBOL_matharg;
+										char ancora2[] = "empty";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).valor = strdup($1);
+										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Set;
 										$$ = ancora;																
 									}
 	;
