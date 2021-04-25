@@ -1,6 +1,6 @@
-enum typeConversion{None, IntToFloat, FloatToInt, ElemToInt, ElemToFloat};
+enum typeConversion{None, IntToFloatLeft, IntToFloatRight, FloatToIntLeft, FloatToIntRight, ElemToIntLeft, ElemToIntRight, ElemToFloatLeft, ElemToFloatRight, ElemToIntBoth, ElemToFloatBoth};
 
-enum typeVirtual{Int, Float, Elem};
+enum typeVirtual{Untyped, Int, Float, Elem, Set};
 
 typedef struct simbolo{				//elemento da tabela de simbolos. Contém ponteiros para os simbolos seguinte e anterior, o nome do simbolo, o valor associado a ele(em string,se tiver), qual tipo
 
@@ -11,6 +11,7 @@ typedef struct simbolo{				//elemento da tabela de simbolos. Contém ponteiros p
 	int tipo;
 	int tamanhoValor;
 	int escopo;
+	int returnType;
 	} simbolo;
 	
 

@@ -15,7 +15,8 @@ int yylex(void);
 
 //#define ID 1
 #define CHAR_TABLE 2
-#define NUM_TABLE 3
+#define INT_TABLE 3
+#define FLOAT_TABLE 4
 #define STRING_TABLE 5
 #define FUNC_TABLE 6
 #define ELEM_TABLE 7
@@ -36,6 +37,110 @@ pilha* pilhaEscopo;
 
 int escopoCounter;
 
+int ConverteRetornoTipo(no* entrada){
+	char* nome = (*entrada).nome;
+
+	if(!strcmp(nome,"set")){
+		return Set;
+	}
+	else if(!strcmp(nome,"int")){
+		return Int;
+	}
+	else if(!strcmp(nome,"elem")){
+		return Elem;
+	}
+	else{
+		return Float;
+	}
+}
+
+
+int ConverteTableTipo(int tipo){
+	switch(tipo){
+		case INT_TABLE:
+			return Int;
+		break;
+
+		case FLOAT_TABLE:
+			return Float;
+		break;
+
+		case ELEM_TABLE:
+			return Elem;
+		break;
+
+		case SET_TABLE:
+			return Set;
+		break;
+	}
+	return 0;
+}
+
+int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma função para decidir se vamos fazer uma conversão de tipos.
+	if(tipo1 == tipo2 == tipoAlvo){
+		return None;
+	}
+
+	if(tipoAlvo == Int){
+		if(tipo1 == Int && tipo2 == Float){
+			return FloatToIntRight;
+		}
+		else if(tipo1 == Float && tipo2 == Int){
+			return FloatToIntLeft;
+		}
+		else if(tipo1 == Elem && tipo2 != Elem){
+			return ElemToIntLeft;
+		}
+		else if(tipo1 != Elem && tipo2 == Elem){
+			return ElemToIntRight;
+		}
+		else if (tipo1 == tipo2 == Elem){
+			return ElemToIntBoth;
+		}
+	}
+	else if(tipoAlvo == Float){
+		if(tipo1 == Int && tipo2 == Float){
+			return IntToFloatLeft;
+		}
+		else if(tipo1 == Float && tipo2 == Int){
+			return IntToFloatRight;
+		}
+		else if(tipo1 == Elem && tipo2 != Elem){
+			return ElemToFloatLeft;
+		}
+		else if(tipo1 != Elem && tipo2 == Elem){
+			return ElemToFloatRight;
+		}
+		else if(tipo1 == tipo2 == Elem){
+			return ElemToFloatBoth;
+		}
+	}
+	else if(tipoAlvo == Elem){
+		return None;
+	}
+	else {
+		printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n");
+		return 99;
+	}
+
+
+}
+
+
+int DecideTipo(int tipo1, int tipo2){ //Função pra decidir qual deve ser o tipo de uma operação que use os dois tipos de entrada
+	if(tipo1 == tipo2){ //Se já são do mesmo tipo, use esse tipo mesmo
+		return tipo1;
+	}
+	else if((tipo1 == Float && tipo2 == Int) || (tipo1 == Int && tipo2 == Float)){ //Se um for Int e o outro Float, a operação deve retornar um Float
+		return Float;
+	}
+	else if(tipo1 == Elem && tipo2 != Elem){//Se um deles for Elem, o resultado deve ser o tipo do outro
+		return tipo2;
+	}
+	else {			
+		return tipo1;
+	}
+}
 	
 simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
@@ -59,7 +164,14 @@ simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	} 
 	(*ancora).nome = strdup(nome);
 	(*ancora).escopo = escopo;
+	(*ancora).returnType = Untyped;
 	topo = ancora;
+	return ancora;
+}
+
+simbolo* CriarSimboloFuncao(char* nome, int tipo, char* valor, int escopo, int retorno){
+	simbolo* ancora = CriarSimbolo(nome,tipo,valor,escopo);
+	(*ancora).returnType = retorno;
 	return ancora;
 }
 	
@@ -244,8 +356,8 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 	struct no *node;
 }
 
-%token <text> INT 
-%token <text> FLOAT
+%token <text> INTEGER
+%token <text> FLOATING
 %token <text> STRING
 %token <text> EMPTY
 %token <text> CHAR
@@ -327,6 +439,7 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 %type <node> type
 %type <node> single_line_statement
 %type <node> else
+%type <node> num
 
 %destructor {$$ = NULL;} <*>
 
@@ -739,6 +852,7 @@ single_line_statement:
 
 
 comparg:
+	/*
 		ID										{
 													no* ancora = (no*)malloc(sizeof(no));
 													$$ = ancora;
@@ -763,7 +877,8 @@ comparg:
 													
 
 												}
-	|	OPENPAR comparison CLOSEPAR				{	
+	*/
+		OPENPAR comparison CLOSEPAR				{	
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = $2;
 													(*ancora).numFilhos = 1;
@@ -773,24 +888,25 @@ comparg:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($2)->tipoVirtual;
 													$$ = ancora;
 													$1 = NULL;
 													$3 = NULL;
 												}
-	|	NUM										{
+	|	mathop									{
 													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 0;
+													(*ancora).numFilhos = 1;
+													(*ancora).filhos[0] = $1;
 													(*ancora).tipo = YYSYMBOL_comparg;
-													char ancora2[] = "NUM";
+													char ancora2[] = "mathop";
 													(*ancora).nome = strdup(ancora2);
-													(*ancora).valor = strdup($1);
+													(*ancora).valor = NULL;
 													(*ancora).refereTabela = NULL;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
 													$$ = ancora;
-													free($1);
 												}
+	/*
 	|	function_call 							{
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -801,9 +917,10 @@ comparg:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													$$ = ancora;
 												}
+	*/
 	;
 
 comparison:
@@ -816,8 +933,19 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													switch(($2)->tipoVirtual){
+														case Elem:
+															(*ancora).conversion = ElemToIntLeft;
+															(*ancora).tipoVirtual = Int;
+															break;
+														case Set:
+															printf("ERRO SEMANTICO! EXPRESSAO RESULTANTE EM SET USADA EM OPERACAO INVALIDA! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
+															break;
+														default:
+															(*ancora).conversion = None;
+															(*ancora).tipoVirtual = ($2)->tipoVirtual;
+															break;
+													}
 													$$ = ancora;
 													$1 = NULL;
 												}
@@ -831,8 +959,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -846,8 +974,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -861,8 +989,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -876,8 +1004,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -891,8 +1019,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -906,8 +1034,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -921,8 +1049,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -936,8 +1064,8 @@ comparison:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+													(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 													$$ = ancora;
 													$2 = NULL;
 												}
@@ -955,7 +1083,7 @@ read:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$3);
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO! Linha: %d, Coluna: %d\n",$3,linhaCount,colunaCount);
 														(*ancora).refereTabela = NULL;
 													}
 													$$ = ancora;
@@ -1450,7 +1578,7 @@ conjuntoop1:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO! Linha: %d, Coluna: %d\n",$1,linhaCount,colunaCount);
 														(*ancora).refereTabela = NULL;
 													}
 													(*ancora).valor = strdup($1);
@@ -1672,13 +1800,15 @@ function_call:
 																				simbolo *ancoraSimb = VerificarEscopo($1);
 																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
+																					(*ancora).tipoVirtual = (*ancoraSimb).returnType;
 																				}
 																				else{
 																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
 																					(*ancora).refereTabela = NULL;
+																					(*ancora).tipoVirtual = 0;
 																				}
 																				(*ancora).conversion = None;
-																				(*ancora).tipoVirtual = 0;
+																				
 																				$$ = ancora;
 																				$1 = NULL;
 																				$2 = NULL;
@@ -1694,39 +1824,31 @@ function_call:
 	;
 */
 args:
-			ID args1		{
+			mathop args1	{
 								no* ancora = (no*)malloc(sizeof(no));
-								(*ancora).numFilhos = 1;
-								(*ancora).filhos[0] = $2;
+								(*ancora).numFilhos = 2;
+								(*ancora).filhos[0] = $1;
+								(*ancora).filhos[1] = $2;
 								(*ancora).tipo = YYSYMBOL_args;
-								char ancora2[] = "ID";
+								char ancora2[] = "mathop";
 								(*ancora).nome = strdup(ancora2);
-								simbolo *ancoraSimb = VerificarEscopo($1);
-								if(ancoraSimb != NULL){ 
-									(*ancora).refereTabela = ancoraSimb;
-								}
-								else{
-									printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
-									(*ancora).refereTabela = NULL;
-								}
-								(*ancora).valor = strdup($1);
+								(*ancora).refereTabela = NULL;
+								(*ancora).valor = strdup(($1)->valor);
 								(*ancora).conversion = None;
 								(*ancora).tipoVirtual = 0;
-								free($1);
 								$$ = ancora;
 							}
-		|	NUM args1		{	
+		/*|	num args1		{	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
 								(*ancora).filhos[0] = $2;
 								(*ancora).tipo = YYSYMBOL_args;
-								char ancora2[] = "NUM";
+								char ancora2[] = "num";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
 								(*ancora).valor = strdup($1);
 								(*ancora).conversion = None;
-								(*ancora).tipoVirtual = 0;
-								free($1);
+								(*ancora).tipoVirtual = ($1)->tipoVirtual;
 								$$ = ancora;
 							}
 	|	function_call args1 {	
@@ -1742,6 +1864,7 @@ args:
 								(*ancora).tipoVirtual = 0;
 								$$ = ancora;
 							}
+	*/
 	|	error args1 		{	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
@@ -1860,6 +1983,7 @@ function_declaration:
 																				$5 = NULL;
 																				$6 = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
+																				int tipoRetorno = ConverteRetornoTipo($1);
 																				int realEscopo;
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = $1;
@@ -1875,7 +1999,7 @@ function_declaration:
 																					printf("ERRO SEMANTICO! ID %s REDECLARADO COMO FUNCAO! LINHA: %d, COLUNA: %d \n",$2,linhaCount,colunaCount);
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo($2,FUNC_TABLE,NULL,realEscopo);
+																					(*ancora).refereTabela = CriarSimboloFuncao($2,FUNC_TABLE,NULL,realEscopo,tipoRetorno);
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
@@ -1965,8 +2089,8 @@ mathop:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+										(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1980,8 +2104,8 @@ mathop:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+										(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -1995,7 +2119,7 @@ mathop:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
 										$$ = ancora;
 									}
 	;
@@ -2011,8 +2135,8 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+										(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -2026,8 +2150,8 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+										(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 										$$ = ancora;
 										$2 = NULL;
 									}
@@ -2041,7 +2165,7 @@ mathop1:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
 										$$ = ancora;
 									}
 	;
@@ -2058,7 +2182,7 @@ mathop2:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
 										$$ = ancora;
 									}
 	|	OPENPAR mathop CLOSEPAR		{
@@ -2071,7 +2195,7 @@ mathop2:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ($2)->tipoVirtual;
 										$$ = ancora;
 										$1 = NULL;
 										$3 = NULL;
@@ -2095,22 +2219,21 @@ matharg:
 										}
 										(*ancora).valor = strdup($1);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ConverteTableTipo((*ancoraSimb).tipo);
 										free($1);
 										$$ = ancora;																
 									}
 
-	|	NUM 						{
+	|	num 						{
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
 										(*ancora).tipo = YYSYMBOL_matharg;
-										char ancora2[] = "NUM";
+										char ancora2[] = "num";
 										(*ancora).nome = strdup(ancora2);
 										(*ancora).valor = strdup($1);
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
-										free($1);
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
 										$$ = ancora;																
 									}
 	|	function_call				{
@@ -2123,7 +2246,7 @@ matharg:
 										(*ancora).valor = NULL;
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ($1)->tipoVirtual;
 										$$ = ancora;																
 									}
 	;
@@ -2140,7 +2263,7 @@ type:
 										sprintf(ancora3,"%d",SET_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Set;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2155,7 +2278,7 @@ type:
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Int;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2170,7 +2293,7 @@ type:
 										sprintf(ancora3,"%d",ELEM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Elem;
 										$$ = ancora;
 										$1 = NULL;
 									}
@@ -2185,11 +2308,41 @@ type:
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Float;
 										$$ = ancora;
 										$1 = NULL;
 									}
 	;
+
+num:
+		INTEGER 					{
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										char ancora2[] = "integer"
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_num;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = strdup($1);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Int;
+										$$ = ancora;
+										free($1);
+									}
+
+	|	FLOATING 					{
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										char ancora2[] = "floating"
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_num;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = strdup($1);
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Float;
+										$$ = ancora;
+										free($1);
+									}
+
 
 %%
 /*
@@ -2203,7 +2356,7 @@ void yyerror(char *s){
 */
 
 void yyerror(char const *s){
-	printf("At line %d, column %d: %s\n",linhaCount,colunaCount,s);
+	printf("Linha: %d, Coluna: %d -> %s\n",linhaCount,colunaCount,s);
 
 }
 
