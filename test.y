@@ -469,7 +469,6 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 %type <node> single_line_statement
 %type <node> else
 %type <node> num
-%type <node> function_type
 
 %destructor {$$ = NULL;} <*>
 
@@ -2002,7 +2001,7 @@ funcargs:
 	
 
 function_declaration:
-		function_type ID  
+		type ID  
 																			{ //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
@@ -2030,6 +2029,42 @@ function_declaration:
 																				}
 																				else{
 																					(*ancora).refereTabela = CriarSimboloFuncao($2,FUNC_TABLE,NULL,realEscopo,tipoRetorno);
+																				}
+																				(*ancora).valor = strdup($2);
+																				free($2);
+																				(*ancora).conversion = None;
+																				(*ancora).tipoVirtual = 0;
+																				$$ = ancora;
+																			}
+
+	|	VOID ID  
+																			{ //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
+																				escopoCounter++;
+																				Push(pilhaEscopo,CriarStack(escopoCounter));
+																			}
+		OPENPAR funcargs CLOSEPAR OPENCURLY statement CLOSECURLY 			{
+																				$1 = NULL;
+																				$4 = NULL;
+																				$6 = NULL;
+																				$7 = NULL;
+																				$9 = NULL;
+																				no* ancora = (no*)malloc(sizeof(no));
+																				int realEscopo;
+																				(*ancora).numFilhos = 3;
+																				(*ancora).filhos[0] = $1;
+																				(*ancora).filhos[1] = $5;
+																				(*ancora).filhos[2] = $8;
+																				(*ancora).tipo = YYSYMBOL_function_declaration;
+																				char ancora2[] = "function_declaration";
+																				(*ancora).nome = strdup(ancora2);
+																				simbolo *ancoraSimb = ProcurarTabela($2);
+																				Pop(pilhaEscopo);
+																				realEscopo = Top(pilhaEscopo)->valor;
+																				if(ancoraSimb != NULL){
+																					printf("ERRO SEMANTICO! ID %s REDECLARADO COMO FUNCAO! LINHA: %d, COLUNA: %d \n",$2,linhaCount,colunaCount);
+																				}
+																				else{
+																					(*ancora).refereTabela = CriarSimboloFuncao($2,FUNC_TABLE,NULL,realEscopo,Void);
 																				}
 																				(*ancora).valor = strdup($2);
 																				free($2);
@@ -2292,36 +2327,6 @@ matharg:
 										$$ = ancora;																
 									}
 	;
-
-function_type:
-				type 				{
-										no* ancora = (no*)malloc(sizeof(no));
-										(*ancora).numFilhos = 1;
-										(*ancora).filhos[0] = $1;
-										char ancora2[] = "type";
-										(*ancora).nome = strdup(ancora2);
-										(*ancora).tipo = YYSYMBOL_function_type;
-										(*ancora).refereTabela = NULL;
-										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = ($1)->tipoVirtual;
-										$$ = ancora;
-									}
-
-			|	VOID 				{
-										no* ancora = (no*)malloc(sizeof(no));
-										(*ancora).numFilhos = 0;
-										(*ancora).tipo = YYSYMBOL_function_type;
-										char ancora2[] = "void";
-										(*ancora).nome = strdup(ancora2);
-										(*ancora).valor = strdup($1);
-										(*ancora).refereTabela = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = Void;
-										$$ = ancora;																
-									}
-			;
-
 
 
 
