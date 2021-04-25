@@ -2320,7 +2320,7 @@ function_type:
 										(*ancora).tipoVirtual = Void;
 										$$ = ancora;																
 									}
-
+			;
 
 
 
@@ -2416,6 +2416,7 @@ num:
 										$$ = ancora;
 										free($1);
 									}
+	;
 
 
 %%
