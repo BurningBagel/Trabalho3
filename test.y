@@ -281,7 +281,42 @@ void EscreverArvore(no* argumento,int profund){
 	for(j = 0;j < profund;j++){
 		printf("-");
 	}
-	printf(">%s\n",(*argumento).nome);
+	printf(">%s",(*argumento).nome);
+	if((*argumento).conversion != None){
+		switch((*argumento).conversion){
+			case IntToFloatLeft:
+				printf("|Typecast left arg from Int to Float");
+			break;
+			case IntToFloatRight:
+				printf("|Typecast right arg from Int to Float");
+			break;
+			case FloatToIntLeft:
+				printf("|Typecast left arg from Float to Int");
+			break;
+			case FloatToIntRight:
+				printf("|Typecast right arg from Float to Int");
+			break;
+			case ElemToIntLeft:
+				printf("|Typecast left arg from Elem to Int");
+			break;
+			case ElemToIntRight:
+				printf("|Typecast right arg from Elem to Int");
+			break;
+			case ElemToFloatLeft:
+				printf("|Typecast left arg from Elem to Float");
+			break;
+			case ElemToFloatRight:
+				printf("|Typecast right arg from Elem to Float");
+			break;
+			case ElemToIntBoth:
+				printf("|Typecast both args from Elem to Int");
+			break;
+			case ElemToFloatBoth:
+				printf("|Typecast both args from Elem to Float");
+			break;
+		}
+	}
+	printf("\n");
 	for(i = 0;i < (*argumento).numFilhos;i++){
 		EscreverArvore((*argumento).filhos[i],profund+1);
 	}
@@ -2210,7 +2245,7 @@ mathop1:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).tipoVirtual = DecideTipo(($1)->tipoVirtual,($3)->tipoVirtual);
+										(*ancora).tipoVirtual = Float; //Melhor que toda divisão resulte em um float
 										(*ancora).conversion = DecideConversao(($1)->tipoVirtual,($3)->tipoVirtual,(*ancora).tipoVirtual);
 										$$ = ancora;
 										$2 = NULL;
