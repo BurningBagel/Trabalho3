@@ -2105,7 +2105,7 @@ variable_declaration:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			char ancora2[] = "variable_declaration";
 																			(*ancora).nome = strdup(ancora2);
-																			simbolo *ancoraSimb = VerificarEscopo($2,(Top(pilhaEscopo)->valor));
+																			simbolo *ancoraSimb = ProcurarTabelaEscopo($2,(Top(pilhaEscopo)->valor));
 																			if(ancoraSimb != NULL){
 																				printf("ERRO SEMANTICO! VARIAVEL %s REDECLARADA! LINHA: %d, COLUNA: %d\n",$2,linhaCount,colunaCount);
 																			}
