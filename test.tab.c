@@ -85,7 +85,8 @@ int yylex(void);
 
 //#define ID 1
 #define CHAR_TABLE 2
-#define NUM_TABLE 3
+#define INT_TABLE 3
+#define FLOAT_TABLE 4
 #define STRING_TABLE 5
 #define FUNC_TABLE 6
 #define ELEM_TABLE 7
@@ -106,6 +107,132 @@ pilha* pilhaEscopo;
 
 int escopoCounter;
 
+
+char* ConverteRetornoTipoString(int entrada){
+	char* resultado;
+	if(entrada == Int){
+		resultado = strdup("Inteiro");
+	}
+	else if(entrada == Float){
+		resultado = strdup("Float");
+	}
+	else if(entrada == Elem){
+		resultado = strdup("Elem");
+	}
+	else if(entrada == Set){
+		resultado = strdup("Set");
+	}
+	return resultado;
+}
+
+
+int ConverteRetornoTipo(no* entrada){
+	char* nome = (*entrada).nome;
+
+	if(!strcmp(nome,"set")){
+		return Set;
+	}
+	else if(!strcmp(nome,"int")){
+		return Int;
+	}
+	else if(!strcmp(nome,"elem")){
+		return Elem;
+	}
+	else if(!strcmp(nome,"void")){
+		return Void;
+	}
+	else{
+		return Float;
+	}
+}
+
+
+int ConverteTableTipo(int tipo){
+	switch(tipo){
+		case INT_TABLE:
+			return Int;
+		break;
+
+		case FLOAT_TABLE:
+			return Float;
+		break;
+
+		case ELEM_TABLE:
+			return Elem;
+		break;
+
+		case SET_TABLE:
+			return Set;
+		break;
+	}
+	return 0;
+}
+
+int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma função para decidir se vamos fazer uma conversão de tipos.
+	if((tipo1 == tipo2) && (tipo2 == tipoAlvo)){
+		return None;
+	}
+
+	if(tipoAlvo == Int){
+		if(tipo1 == Int && tipo2 == Float){
+			return FloatToIntRight;
+		}
+		else if(tipo1 == Float && tipo2 == Int){
+			return FloatToIntLeft;
+		}
+		else if(tipo1 == Elem && tipo2 != Elem){
+			return ElemToIntLeft;
+		}
+		else if(tipo1 != Elem && tipo2 == Elem){
+			return ElemToIntRight;
+		}
+		else if (tipo1 == Elem && tipo2 == Elem){
+			return ElemToIntBoth;
+		}
+	}
+	else if(tipoAlvo == Float){
+		if(tipo1 == Int && tipo2 == Float){
+			return IntToFloatLeft;
+		}
+		else if(tipo1 == Float && tipo2 == Int){
+			return IntToFloatRight;
+		}
+		else if(tipo1 == Elem && tipo2 != Elem){
+			return ElemToFloatLeft;
+		}
+		else if(tipo1 != Elem && tipo2 == Elem){
+			return ElemToFloatRight;
+		}
+		else if((tipo1 == tipo2) && (tipo2 == Elem)){
+			return ElemToFloatBoth;
+		}
+	}
+	else if(tipoAlvo == Elem){
+		return None;
+	}
+	else {
+		printf("ERRO SEMANTICO! NAO CONSEGUI DETERMINAR COMO CONVERTER! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
+		return 99;
+	}
+
+
+}
+
+
+int DecideTipo(int tipo1, int tipo2){ //Função pra decidir qual deve ser o tipo de uma operação que use os dois tipos de entrada
+	if(tipo1 == tipo2){ //Se já são do mesmo tipo, use esse tipo mesmo
+		return tipo1;
+	}
+	else if((tipo1 == Float && tipo2 == Int) || (tipo1 == Int && tipo2 == Float)){ //Se um for Int e o outro Float, a operação deve retornar um Float
+		return Float;
+	}
+	else if(tipo1 == Elem && tipo2 != Elem){//Se um deles for Elem, o resultado deve ser o tipo do outro
+		return tipo2;
+	}
+	else {			
+		return tipo1;
+	}
+}
 	
 simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	simbolo *ancora = (simbolo*)malloc(sizeof(simbolo));
@@ -129,7 +256,14 @@ simbolo* CriarSimbolo(char* nome, int tipo, char* valor, int escopo){
 	} 
 	(*ancora).nome = strdup(nome);
 	(*ancora).escopo = escopo;
+	(*ancora).returnType = Untyped;
 	topo = ancora;
+	return ancora;
+}
+
+simbolo* CriarSimboloFuncao(char* nome, int tipo, char* valor, int escopo, int retorno){
+	simbolo* ancora = CriarSimbolo(nome,tipo,valor,escopo);
+	(*ancora).returnType = retorno;
 	return ancora;
 }
 	
@@ -150,8 +284,8 @@ void ApagarTabela(){
 	while(ancora != NULL);
 }
 
-simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){
-	simbolo *ancora = tabelaSimbolos;
+simbolo* ProcurarTabelaEscopo(char* alvo, int escopo){//Procura na tabela por um ID no escopo dado com o nome alvo. Usado pra verificar redeclaracao
+	simbolo *ancora = tabelaSimbolos; 					//
 
 	while(ancora != NULL){
 		if(!strcmp((*ancora).nome,alvo) && (*ancora).escopo == escopo){
@@ -178,13 +312,19 @@ void EscreverTabela(){
 	printf("-----------TABELA DE SIMBOLOS----------\n");
 	printf("|-------------------------------------|\n");
 	simbolo *ancora = tabelaSimbolos;
+	char* ancoraString;
 	while(ancora != NULL){
 		printf("%s|",(*ancora).nome);
-		if((*ancora).tipo == NUM_TABLE){
-			printf("variavel de numero|Escopo: %d\n",(*ancora).escopo);
+		if((*ancora).tipo == INT_TABLE){
+			printf("variavel de numero inteiro|Escopo: %d\n",(*ancora).escopo);
+		}
+		else if((*ancora).tipo == FLOAT_TABLE){
+			printf("variavel de numero float|Escopo: %d\n",(*ancora).escopo);
 		}
 		else if((*ancora).tipo == FUNC_TABLE){
-			printf("funcao|Escopo: %d\n",(*ancora).escopo);
+			ancoraString = ConverteRetornoTipoString((*ancora).returnType)
+			printf("funcao|Tipo de retorno: %s|Escopo: %d\n",ancoraString,(*ancora).escopo);
+			free(ancoraString);
 		}
 		else if((*ancora).tipo == SET_TABLE){
 			printf("variavel de set|Escopo: %d\n",(*ancora).escopo);
@@ -303,7 +443,7 @@ simbolo* VerificarEscopo(char* alvo){		//Verifica se o simbolo 'alvo' é acessí
 }
 
 
-#line 307 "test.tab.c"
+#line 447 "test.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -334,93 +474,98 @@ enum yysymbol_kind_t
   YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
   YYSYMBOL_YYerror = 1,                    /* error  */
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
-  YYSYMBOL_NUM = 3,                        /* NUM  */
-  YYSYMBOL_STRING = 4,                     /* STRING  */
-  YYSYMBOL_CHAR = 5,                       /* CHAR  */
-  YYSYMBOL_ID = 6,                         /* ID  */
-  YYSYMBOL_INT = 7,                        /* INT  */
-  YYSYMBOL_FLOAT = 8,                      /* FLOAT  */
-  YYSYMBOL_ELEM = 9,                       /* ELEM  */
-  YYSYMBOL_SET = 10,                       /* SET  */
-  YYSYMBOL_IF = 11,                        /* IF  */
-  YYSYMBOL_ELSE = 12,                      /* ELSE  */
-  YYSYMBOL_FOR = 13,                       /* FOR  */
-  YYSYMBOL_READ = 14,                      /* READ  */
-  YYSYMBOL_WRITE = 15,                     /* WRITE  */
-  YYSYMBOL_WRITELN = 16,                   /* WRITELN  */
-  YYSYMBOL_IN = 17,                        /* IN  */
-  YYSYMBOL_IS_SET = 18,                    /* IS_SET  */
-  YYSYMBOL_ADD = 19,                       /* ADD  */
-  YYSYMBOL_REMOVE = 20,                    /* REMOVE  */
-  YYSYMBOL_EXISTS = 21,                    /* EXISTS  */
-  YYSYMBOL_FORALL = 22,                    /* FORALL  */
-  YYSYMBOL_RETURN = 23,                    /* RETURN  */
-  YYSYMBOL_OPENPAR = 24,                   /* OPENPAR  */
-  YYSYMBOL_CLOSEPAR = 25,                  /* CLOSEPAR  */
-  YYSYMBOL_OPENCURLY = 26,                 /* OPENCURLY  */
-  YYSYMBOL_CLOSECURLY = 27,                /* CLOSECURLY  */
-  YYSYMBOL_OPENBRAC = 28,                  /* OPENBRAC  */
-  YYSYMBOL_CLOSEBRAC = 29,                 /* CLOSEBRAC  */
-  YYSYMBOL_LESS = 30,                      /* LESS  */
-  YYSYMBOL_LE = 31,                        /* LE  */
-  YYSYMBOL_EQ = 32,                        /* EQ  */
-  YYSYMBOL_NEQ = 33,                       /* NEQ  */
-  YYSYMBOL_GREATER = 34,                   /* GREATER  */
-  YYSYMBOL_GE = 35,                        /* GE  */
-  YYSYMBOL_PLUS = 36,                      /* PLUS  */
-  YYSYMBOL_MINUS = 37,                     /* MINUS  */
-  YYSYMBOL_DBS = 38,                       /* DBS  */
-  YYSYMBOL_AST = 39,                       /* AST  */
-  YYSYMBOL_BS = 40,                        /* BS  */
-  YYSYMBOL_ASSIGN = 41,                    /* ASSIGN  */
-  YYSYMBOL_COMMA = 42,                     /* COMMA  */
-  YYSYMBOL_SEMICOLON = 43,                 /* SEMICOLON  */
-  YYSYMBOL_OR = 44,                        /* OR  */
-  YYSYMBOL_AND = 45,                       /* AND  */
-  YYSYMBOL_NOT = 46,                       /* NOT  */
-  YYSYMBOL_AMP = 47,                       /* AMP  */
-  YYSYMBOL_PCENT = 48,                     /* PCENT  */
-  YYSYMBOL_YYACCEPT = 49,                  /* $accept  */
-  YYSYMBOL_inicio = 50,                    /* inicio  */
-  YYSYMBOL_statement = 51,                 /* statement  */
-  YYSYMBOL_52_1 = 52,                      /* $@1  */
-  YYSYMBOL_single_line_statement = 53,     /* single_line_statement  */
-  YYSYMBOL_comparg = 54,                   /* comparg  */
-  YYSYMBOL_comparison = 55,                /* comparison  */
-  YYSYMBOL_read = 56,                      /* read  */
-  YYSYMBOL_write = 57,                     /* write  */
-  YYSYMBOL_writeln = 58,                   /* writeln  */
-  YYSYMBOL_return = 59,                    /* return  */
-  YYSYMBOL_for = 60,                       /* for  */
-  YYSYMBOL_61_2 = 61,                      /* $@2  */
-  YYSYMBOL_if = 62,                        /* if  */
-  YYSYMBOL_63_3 = 63,                      /* $@3  */
-  YYSYMBOL_64_4 = 64,                      /* $@4  */
-  YYSYMBOL_else = 65,                      /* else  */
-  YYSYMBOL_66_5 = 66,                      /* $@5  */
-  YYSYMBOL_conjuntoop = 67,                /* conjuntoop  */
-  YYSYMBOL_conjuntoop1 = 68,               /* conjuntoop1  */
-  YYSYMBOL_pertinencia = 69,               /* pertinencia  */
-  YYSYMBOL_tipagem = 70,                   /* tipagem  */
-  YYSYMBOL_inclusao = 71,                  /* inclusao  */
-  YYSYMBOL_remocao = 72,                   /* remocao  */
-  YYSYMBOL_selecao = 73,                   /* selecao  */
-  YYSYMBOL_iteracao = 74,                  /* iteracao  */
-  YYSYMBOL_75_6 = 75,                      /* $@6  */
-  YYSYMBOL_76_7 = 76,                      /* $@7  */
-  YYSYMBOL_function_call = 77,             /* function_call  */
-  YYSYMBOL_args = 78,                      /* args  */
-  YYSYMBOL_args1 = 79,                     /* args1  */
-  YYSYMBOL_funcargs = 80,                  /* funcargs  */
-  YYSYMBOL_function_declaration = 81,      /* function_declaration  */
-  YYSYMBOL_82_8 = 82,                      /* $@8  */
-  YYSYMBOL_assignment = 83,                /* assignment  */
-  YYSYMBOL_variable_declaration = 84,      /* variable_declaration  */
-  YYSYMBOL_mathop = 85,                    /* mathop  */
-  YYSYMBOL_mathop1 = 86,                   /* mathop1  */
-  YYSYMBOL_mathop2 = 87,                   /* mathop2  */
-  YYSYMBOL_matharg = 88,                   /* matharg  */
-  YYSYMBOL_type = 89                       /* type  */
+  YYSYMBOL_INTEGER = 3,                    /* INTEGER  */
+  YYSYMBOL_FLOATING = 4,                   /* FLOATING  */
+  YYSYMBOL_STRING = 5,                     /* STRING  */
+  YYSYMBOL_EMPTY = 6,                      /* EMPTY  */
+  YYSYMBOL_CHAR = 7,                       /* CHAR  */
+  YYSYMBOL_ID = 8,                         /* ID  */
+  YYSYMBOL_INT = 9,                        /* INT  */
+  YYSYMBOL_FLOAT = 10,                     /* FLOAT  */
+  YYSYMBOL_ELEM = 11,                      /* ELEM  */
+  YYSYMBOL_SET = 12,                       /* SET  */
+  YYSYMBOL_IF = 13,                        /* IF  */
+  YYSYMBOL_ELSE = 14,                      /* ELSE  */
+  YYSYMBOL_FOR = 15,                       /* FOR  */
+  YYSYMBOL_READ = 16,                      /* READ  */
+  YYSYMBOL_WRITE = 17,                     /* WRITE  */
+  YYSYMBOL_WRITELN = 18,                   /* WRITELN  */
+  YYSYMBOL_IN = 19,                        /* IN  */
+  YYSYMBOL_IS_SET = 20,                    /* IS_SET  */
+  YYSYMBOL_ADD = 21,                       /* ADD  */
+  YYSYMBOL_REMOVE = 22,                    /* REMOVE  */
+  YYSYMBOL_EXISTS = 23,                    /* EXISTS  */
+  YYSYMBOL_FORALL = 24,                    /* FORALL  */
+  YYSYMBOL_RETURN = 25,                    /* RETURN  */
+  YYSYMBOL_OPENPAR = 26,                   /* OPENPAR  */
+  YYSYMBOL_CLOSEPAR = 27,                  /* CLOSEPAR  */
+  YYSYMBOL_OPENCURLY = 28,                 /* OPENCURLY  */
+  YYSYMBOL_CLOSECURLY = 29,                /* CLOSECURLY  */
+  YYSYMBOL_OPENBRAC = 30,                  /* OPENBRAC  */
+  YYSYMBOL_CLOSEBRAC = 31,                 /* CLOSEBRAC  */
+  YYSYMBOL_LESS = 32,                      /* LESS  */
+  YYSYMBOL_LE = 33,                        /* LE  */
+  YYSYMBOL_EQ = 34,                        /* EQ  */
+  YYSYMBOL_NEQ = 35,                       /* NEQ  */
+  YYSYMBOL_GREATER = 36,                   /* GREATER  */
+  YYSYMBOL_GE = 37,                        /* GE  */
+  YYSYMBOL_PLUS = 38,                      /* PLUS  */
+  YYSYMBOL_MINUS = 39,                     /* MINUS  */
+  YYSYMBOL_DBS = 40,                       /* DBS  */
+  YYSYMBOL_AST = 41,                       /* AST  */
+  YYSYMBOL_BS = 42,                        /* BS  */
+  YYSYMBOL_ASSIGN = 43,                    /* ASSIGN  */
+  YYSYMBOL_COMMA = 44,                     /* COMMA  */
+  YYSYMBOL_SEMICOLON = 45,                 /* SEMICOLON  */
+  YYSYMBOL_OR = 46,                        /* OR  */
+  YYSYMBOL_AND = 47,                       /* AND  */
+  YYSYMBOL_NOT = 48,                       /* NOT  */
+  YYSYMBOL_AMP = 49,                       /* AMP  */
+  YYSYMBOL_PCENT = 50,                     /* PCENT  */
+  YYSYMBOL_VOID = 51,                      /* VOID  */
+  YYSYMBOL_YYACCEPT = 52,                  /* $accept  */
+  YYSYMBOL_inicio = 53,                    /* inicio  */
+  YYSYMBOL_statement = 54,                 /* statement  */
+  YYSYMBOL_55_1 = 55,                      /* $@1  */
+  YYSYMBOL_single_line_statement = 56,     /* single_line_statement  */
+  YYSYMBOL_comparg = 57,                   /* comparg  */
+  YYSYMBOL_comparison = 58,                /* comparison  */
+  YYSYMBOL_read = 59,                      /* read  */
+  YYSYMBOL_write = 60,                     /* write  */
+  YYSYMBOL_writeln = 61,                   /* writeln  */
+  YYSYMBOL_return = 62,                    /* return  */
+  YYSYMBOL_for = 63,                       /* for  */
+  YYSYMBOL_64_2 = 64,                      /* $@2  */
+  YYSYMBOL_if = 65,                        /* if  */
+  YYSYMBOL_66_3 = 66,                      /* $@3  */
+  YYSYMBOL_67_4 = 67,                      /* $@4  */
+  YYSYMBOL_else = 68,                      /* else  */
+  YYSYMBOL_69_5 = 69,                      /* $@5  */
+  YYSYMBOL_conjuntoop = 70,                /* conjuntoop  */
+  YYSYMBOL_conjuntoop1 = 71,               /* conjuntoop1  */
+  YYSYMBOL_pertinencia = 72,               /* pertinencia  */
+  YYSYMBOL_tipagem = 73,                   /* tipagem  */
+  YYSYMBOL_inclusao = 74,                  /* inclusao  */
+  YYSYMBOL_remocao = 75,                   /* remocao  */
+  YYSYMBOL_selecao = 76,                   /* selecao  */
+  YYSYMBOL_iteracao = 77,                  /* iteracao  */
+  YYSYMBOL_78_6 = 78,                      /* $@6  */
+  YYSYMBOL_79_7 = 79,                      /* $@7  */
+  YYSYMBOL_function_call = 80,             /* function_call  */
+  YYSYMBOL_args = 81,                      /* args  */
+  YYSYMBOL_args1 = 82,                     /* args1  */
+  YYSYMBOL_funcargs = 83,                  /* funcargs  */
+  YYSYMBOL_function_declaration = 84,      /* function_declaration  */
+  YYSYMBOL_85_8 = 85,                      /* $@8  */
+  YYSYMBOL_assignment = 86,                /* assignment  */
+  YYSYMBOL_variable_declaration = 87,      /* variable_declaration  */
+  YYSYMBOL_mathop = 88,                    /* mathop  */
+  YYSYMBOL_mathop1 = 89,                   /* mathop1  */
+  YYSYMBOL_mathop2 = 90,                   /* mathop2  */
+  YYSYMBOL_matharg = 91,                   /* matharg  */
+  YYSYMBOL_function_type = 92,             /* function_type  */
+  YYSYMBOL_type = 93,                      /* type  */
+  YYSYMBOL_num = 94                        /* num  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -717,21 +862,21 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  70
+#define YYFINAL  72
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   395
+#define YYLAST   429
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  49
+#define YYNTOKENS  52
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  41
+#define YYNNTS  43
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  107
+#define YYNRULES  108
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  226
+#define YYNSTATES  223
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   303
+#define YYMAXUTOK   306
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -775,24 +920,24 @@ static const yytype_int8 yytranslate[] =
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
       25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
       35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
-      45,    46,    47,    48
+      45,    46,    47,    48,    49,    50,    51
 };
 
 #if YYDEBUG
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   352,   352,   366,   383,   382,   407,   439,   455,   471,
-     487,   596,   613,   629,   645,   661,   677,   705,   721,   740,
-     764,   779,   792,   808,   822,   837,   852,   867,   882,   897,
-     912,   927,   945,   972,   989,  1005,  1026,  1043,  1068,  1083,
-    1098,  1115,  1115,  1151,  1150,  1177,  1196,  1195,  1222,  1243,
-    1257,  1271,  1271,  1292,  1307,  1320,  1333,  1346,  1359,  1375,
-    1388,  1401,  1414,  1427,  1440,  1463,  1478,  1496,  1515,  1534,
-    1554,  1574,  1573,  1599,  1617,  1616,  1642,  1662,  1695,  1716,
-    1730,  1743,  1759,  1773,  1788,  1809,  1833,  1845,  1863,  1862,
-    1900,  1925,  1946,  1967,  1982,  1997,  2013,  2028,  2043,  2060,
-    2073,  2091,  2112,  2125,  2141,  2156,  2171,  2186
+       0,   497,   497,   511,   528,   527,   552,   584,   600,   616,
+     632,   741,   758,   774,   790,   806,   822,   850,   866,   911,
+     926,   957,   982,   997,  1012,  1027,  1042,  1057,  1072,  1087,
+    1105,  1132,  1149,  1165,  1186,  1203,  1228,  1243,  1258,  1275,
+    1275,  1311,  1310,  1337,  1356,  1355,  1382,  1403,  1417,  1431,
+    1431,  1452,  1467,  1480,  1493,  1506,  1519,  1535,  1548,  1561,
+    1574,  1587,  1600,  1623,  1638,  1656,  1675,  1694,  1714,  1734,
+    1733,  1759,  1777,  1776,  1802,  1822,  1857,  1898,  1914,  1928,
+    1943,  1959,  1976,  1988,  2006,  2005,  2044,  2069,  2089,  2110,
+    2125,  2140,  2156,  2171,  2186,  2203,  2216,  2234,  2255,  2268,
+    2282,  2297,  2311,  2329,  2344,  2359,  2374,  2392,  2406
 };
 #endif
 
@@ -809,20 +954,21 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 {
   static const char *const yy_sname[] =
   {
-  "end of file", "error", "invalid token", "NUM", "STRING", "CHAR", "ID",
-  "INT", "FLOAT", "ELEM", "SET", "IF", "ELSE", "FOR", "READ", "WRITE",
-  "WRITELN", "IN", "IS_SET", "ADD", "REMOVE", "EXISTS", "FORALL", "RETURN",
-  "OPENPAR", "CLOSEPAR", "OPENCURLY", "CLOSECURLY", "OPENBRAC",
-  "CLOSEBRAC", "LESS", "LE", "EQ", "NEQ", "GREATER", "GE", "PLUS", "MINUS",
-  "DBS", "AST", "BS", "ASSIGN", "COMMA", "SEMICOLON", "OR", "AND", "NOT",
-  "AMP", "PCENT", "$accept", "inicio", "statement", "$@1",
-  "single_line_statement", "comparg", "comparison", "read", "write",
-  "writeln", "return", "for", "$@2", "if", "$@3", "$@4", "else", "$@5",
-  "conjuntoop", "conjuntoop1", "pertinencia", "tipagem", "inclusao",
-  "remocao", "selecao", "iteracao", "$@6", "$@7", "function_call", "args",
-  "args1", "funcargs", "function_declaration", "$@8", "assignment",
-  "variable_declaration", "mathop", "mathop1", "mathop2", "matharg",
-  "type", YY_NULLPTR
+  "end of file", "error", "invalid token", "INTEGER", "FLOATING",
+  "STRING", "EMPTY", "CHAR", "ID", "INT", "FLOAT", "ELEM", "SET", "IF",
+  "ELSE", "FOR", "READ", "WRITE", "WRITELN", "IN", "IS_SET", "ADD",
+  "REMOVE", "EXISTS", "FORALL", "RETURN", "OPENPAR", "CLOSEPAR",
+  "OPENCURLY", "CLOSECURLY", "OPENBRAC", "CLOSEBRAC", "LESS", "LE", "EQ",
+  "NEQ", "GREATER", "GE", "PLUS", "MINUS", "DBS", "AST", "BS", "ASSIGN",
+  "COMMA", "SEMICOLON", "OR", "AND", "NOT", "AMP", "PCENT", "VOID",
+  "$accept", "inicio", "statement", "$@1", "single_line_statement",
+  "comparg", "comparison", "read", "write", "writeln", "return", "for",
+  "$@2", "if", "$@3", "$@4", "else", "$@5", "conjuntoop", "conjuntoop1",
+  "pertinencia", "tipagem", "inclusao", "remocao", "selecao", "iteracao",
+  "$@6", "$@7", "function_call", "args", "args1", "funcargs",
+  "function_declaration", "$@8", "assignment", "variable_declaration",
+  "mathop", "mathop1", "mathop2", "matharg", "function_type", "type",
+  "num", YY_NULLPTR
   };
   return yy_sname[yysymbol];
 }
@@ -837,16 +983,17 @@ static const yytype_int16 yytoknum[] =
      265,   266,   267,   268,   269,   270,   271,   272,   273,   274,
      275,   276,   277,   278,   279,   280,   281,   282,   283,   284,
      285,   286,   287,   288,   289,   290,   291,   292,   293,   294,
-     295,   296,   297,   298,   299,   300,   301,   302,   303
+     295,   296,   297,   298,   299,   300,   301,   302,   303,   304,
+     305,   306
 };
 #endif
 
-#define YYPACT_NINF (-173)
+#define YYPACT_NINF (-165)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-104)
+#define YYTABLE_NINF (-83)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -855,29 +1002,29 @@ static const yytype_int16 yytoknum[] =
      STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-     183,   -17,  -173,   -12,  -173,  -173,  -173,  -173,    25,    37,
-      63,    99,   101,   111,   117,   120,   123,   135,    13,   100,
-    -173,   172,  -173,   142,   136,   138,   139,   144,   142,   142,
-     152,  -173,  -173,  -173,  -173,   161,   142,  -173,   142,   168,
-     169,    -9,    58,  -173,  -173,   121,  -173,   174,   100,     8,
-     213,   218,    38,   130,   349,   265,   265,   265,   241,   274,
-     335,    13,   105,   350,  -173,   298,    16,   208,   103,   207,
-    -173,  -173,  -173,  -173,  -173,  -173,  -173,  -173,  -173,   349,
-    -173,  -173,  -173,   142,   349,   100,   100,   100,   100,  -173,
-     212,   196,   196,    78,   196,   214,    16,   216,  -173,   208,
-      33,   221,  -173,   202,   220,   226,   231,   242,   255,   244,
-     279,    64,   245,  -173,  -173,  -173,  -173,   161,   250,   161,
-     262,   268,   269,   270,   293,  -173,   105,   105,   105,   105,
-     105,   105,   105,   105,  -173,   239,  -173,  -173,  -173,    58,
-      58,  -173,  -173,    84,   174,  -173,  -173,  -173,  -173,  -173,
-     258,   282,    33,  -173,  -173,  -173,  -173,  -173,  -173,  -173,
-    -173,  -173,  -173,   306,   330,  -173,  -173,  -173,  -173,  -173,
-    -173,  -173,  -173,  -173,  -173,  -173,   294,   284,  -173,  -173,
-     316,  -173,   316,   296,  -173,  -173,  -173,  -173,   314,   300,
-     207,   234,  -173,   207,  -173,   213,   207,   207,  -173,    84,
-     320,  -173,  -173,  -173,   331,   318,   334,   336,   207,  -173,
-     316,   207,   316,  -173,  -173,  -173,   337,  -173,   338,  -173,
-     340,  -173,  -173,   207,   352,  -173
+     187,   -34,  -165,  -165,  -165,    -6,  -165,  -165,  -165,  -165,
+      -9,    -7,    -1,     1,    20,    31,    50,    72,    75,    95,
+       6,   310,  -165,  -165,   115,  -165,    71,   117,   120,   156,
+     169,    71,    71,   171,  -165,  -165,  -165,  -165,   104,    71,
+    -165,    71,   176,   181,    23,    78,  -165,  -165,   211,   174,
+    -165,  -165,    52,   310,    25,   216,   225,   284,   166,   381,
+     387,   387,   387,   138,   220,     6,   336,   382,  -165,   -15,
+     111,   219,  -165,  -165,  -165,  -165,  -165,  -165,  -165,  -165,
+    -165,   381,  -165,  -165,  -165,    71,   381,   310,   310,   310,
+     310,  -165,  -165,  -165,   205,   223,   145,   113,   224,   226,
+     113,   213,   215,   231,   234,   235,   141,   236,   179,    79,
+     238,  -165,  -165,  -165,  -165,   104,   239,   104,   248,   255,
+     257,   259,   269,   111,  -165,   336,   336,   336,   336,   336,
+     336,   336,   336,  -165,   272,  -165,  -165,  -165,    78,    78,
+    -165,  -165,   282,    52,  -165,  -165,  -165,   277,   303,     6,
+    -165,  -165,  -165,  -165,  -165,  -165,  -165,  -165,  -165,  -165,
+     329,   355,  -165,  -165,  -165,  -165,  -165,  -165,  -165,  -165,
+    -165,  -165,   146,  -165,  -165,   298,  -165,   298,   270,  -165,
+    -165,  -165,  -165,  -165,   290,   314,   219,   251,  -165,   219,
+    -165,   216,   219,   219,   299,   294,   305,  -165,  -165,  -165,
+     312,   316,   319,   324,   219,   146,   298,   219,   298,  -165,
+    -165,  -165,   331,  -165,  -165,   335,  -165,   337,  -165,  -165,
+     219,   338,  -165
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -885,49 +1032,49 @@ static const yytype_int16 yypact[] =
      means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       0,     0,   102,   101,   105,   107,   106,   104,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,    40,     0,
-       4,     0,     2,     0,     0,     0,     0,     0,     0,     0,
-       0,    54,    55,    56,    57,    58,     0,   103,     0,     0,
-       0,     0,    95,    98,    99,     0,    18,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,    21,
-      19,     0,     0,     0,    38,    22,    39,   101,     0,     0,
-       1,     3,    16,    14,    15,    12,     7,     8,    17,     0,
-       9,     6,    13,     0,     0,     0,     0,     0,     0,    92,
-      91,    83,    83,    83,    83,     0,    90,     0,    21,    19,
-       0,     0,    22,     0,     0,     0,     0,     0,     0,     0,
-       0,   101,     0,    59,    60,    61,    62,    63,     0,     0,
-       0,     0,     0,     0,     0,    23,     0,     0,     0,     0,
-       0,     0,     0,     0,   100,     0,    66,    10,    65,    93,
-      94,    96,    97,     0,     0,    81,    79,    78,    80,    77,
-       0,     0,     0,    32,    34,    35,    33,    37,    36,    67,
-      68,    69,    70,     0,     0,    20,    28,    29,    30,    31,
-      26,    27,    25,    24,     5,    87,     0,     0,    82,    46,
-      53,    43,    53,     0,    74,    76,    71,    73,     0,    84,
-       0,     0,    48,     0,    45,     0,     0,     0,    88,     0,
-       0,    51,    50,    49,     0,     0,     0,     0,     0,    85,
-      53,     0,    53,    41,    75,    72,     0,    47,     0,    44,
-       0,    89,    52,     0,     0,    42
+       0,     0,   107,   108,   100,    97,   104,   106,   105,   103,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+      38,     0,     4,   102,     0,     2,     0,     0,     0,     0,
+       0,     0,     0,     0,    52,    53,    54,    55,    56,     0,
+      99,     0,     0,     0,     0,    91,    94,    95,     0,     0,
+      98,    18,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,    97,     0,     0,     0,    36,    20,
+       0,     0,     1,     3,    16,    14,    15,    12,     7,     8,
+      17,     0,     9,     6,    13,     0,     0,     0,     0,     0,
+       0,    84,    88,    87,    79,     0,    79,    86,     0,     0,
+      20,     0,     0,     0,     0,     0,     0,     0,     0,    97,
+       0,    57,    58,    59,    60,    61,     0,     0,     0,     0,
+       0,     0,     0,    20,    21,     0,     0,     0,     0,     0,
+       0,     0,     0,    96,     0,    64,    10,    63,    89,    90,
+      92,    93,     0,     0,    77,    75,    76,     0,     0,     0,
+      30,    32,    33,    31,    35,    34,    65,    66,    67,    68,
+       0,     0,    19,    26,    27,    28,    29,    24,    25,    23,
+      22,     5,     0,    78,    44,    51,    41,    51,     0,    72,
+      74,    69,    71,    83,     0,     0,     0,     0,    46,     0,
+      43,     0,     0,     0,     0,    80,     0,    49,    48,    47,
+       0,     0,     0,     0,     0,     0,    51,     0,    51,    39,
+      73,    70,     0,    81,    45,     0,    42,     0,    85,    50,
+       0,     0,    40
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-    -173,  -173,   -23,  -173,  -133,   -60,   -15,  -173,  -173,  -173,
-    -173,  -173,  -173,   166,  -173,  -173,  -172,  -173,  -173,    92,
-      20,   -34,    11,    42,    26,  -173,  -173,  -173,   -14,   232,
-     -69,   163,  -173,  -173,   -49,  -173,     3,    15,    44,  -173,
-    -136
+    -165,  -165,   -26,  -165,   -44,   -62,   -47,  -165,  -165,  -165,
+    -165,  -165,  -165,   182,  -165,  -165,  -156,  -165,  -165,     4,
+      67,   -43,   -37,    59,    73,  -165,  -165,  -165,  -165,   227,
+     278,   161,  -165,  -165,   -54,  -165,   -18,    89,    96,  -165,
+    -165,  -164,  -165
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_uint8 yydefgoto[] =
 {
-       0,    21,    22,    69,    23,    63,   124,    24,    25,    26,
-      27,    28,   220,    29,   193,   190,   192,   211,    30,   112,
-      31,    32,    33,    34,    35,    36,   197,   196,    37,    95,
-     145,   176,    38,   208,    39,    40,    41,    42,    43,    44,
-      45
+       0,    24,    25,    71,    26,    67,    68,    27,    28,    29,
+      30,    31,   217,    32,   189,   186,   188,   207,    33,   110,
+      34,    35,    36,    37,    38,    39,   193,   192,    40,    95,
+     144,   184,    41,   142,    42,    43,    44,    45,    46,    47,
+      48,    49,    50
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -935,151 +1082,157 @@ static const yytype_uint8 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      71,   104,   125,    64,    65,    76,    77,   177,    84,    97,
-     194,    98,    47,    80,    99,    81,    59,   180,   182,    60,
-     114,    66,    68,   146,   147,   148,    46,    85,    86,    48,
-     185,   187,   100,    94,   101,   102,    98,    61,   217,    99,
-     219,     2,   106,   107,    67,   114,   135,    65,   102,    49,
-     114,    96,    85,    86,    62,   108,   110,   100,   202,    62,
-     137,    50,    19,   177,    68,   115,   166,   167,   168,   169,
-     170,   171,   172,   173,   113,   118,   120,   121,   123,    62,
-     117,   119,   119,   119,   119,   175,   102,    51,    47,   -64,
-     115,     4,     5,     6,     7,   115,   116,    87,    88,   113,
-     139,   140,    47,     2,   113,   117,    67,   -64,    98,   -86,
-     117,    99,   102,   102,   102,   102,   102,   102,   102,   102,
-     144,   116,    89,    52,    19,    53,   116,    90,   134,   100,
-      94,   141,   142,     2,   109,    54,    67,   183,   102,    85,
-      86,    55,   -11,     1,    56,     2,   205,    57,     3,     4,
-       5,     6,     7,     8,    19,     9,    10,    11,    12,    58,
-      13,    14,    15,    16,    17,    18,    19,   200,    20,   -11,
-     204,   136,    70,   206,   207,    91,   138,    92,    79,    72,
-      93,    73,    74,   -11,     1,   216,     2,    75,   218,     3,
-       4,     5,     6,     7,     8,    78,     9,    10,    11,    12,
-     224,    13,    14,    15,    16,    17,    18,    19,     1,    20,
-       2,    82,    83,     3,     4,     5,     6,     7,     8,   103,
-       9,    10,    11,    12,   105,    13,    14,    15,    16,    17,
-      18,    19,    47,    20,   -11,     1,   143,     2,   144,   149,
-       3,   150,   122,    48,     2,     8,   151,    67,    10,    11,
-      12,   153,    13,    14,    15,    16,   154,    18,    19,     1,
-     201,     2,    16,   152,     3,    19,   174,   155,     2,   157,
-     159,    67,    10,    11,    12,   160,    13,    14,    15,    16,
-     156,    18,    19,     1,   179,     2,    16,   161,     3,    19,
-     189,    85,    86,   162,   163,   164,    10,    11,    12,  -102,
-      13,    14,    15,    16,   158,    18,    19,     1,   181,     2,
-    -102,  -102,     3,  -102,  -102,    85,    86,  -102,   165,   188,
-      10,    11,    12,  -103,    13,    14,    15,    16,   191,    18,
-      19,     1,   184,     2,  -103,  -103,     3,  -103,  -103,   195,
-     198,  -103,   199,   213,    10,    11,    12,   210,    13,    14,
-      15,    16,     2,    18,    19,   111,   186,   203,   212,    47,
-    -101,   214,   209,   215,   221,   222,   223,    13,    14,    15,
-      16,  -101,  -101,    19,  -101,  -101,   178,     0,  -101,   225,
-     126,   127,   128,   129,   130,   131,     0,     0,     0,     0,
-       0,     0,     0,     0,   132,   133
+      73,   102,    69,    70,   124,    78,    79,    99,   185,     2,
+       3,    51,     4,    82,    64,    83,   112,    54,   122,    55,
+      52,   190,   113,    87,    88,    56,    98,    57,     2,     3,
+     -37,     4,    65,    64,    96,    97,   100,    53,   112,   106,
+     108,   185,    86,   112,   113,   134,    58,   123,   100,   113,
+     214,    65,   216,    94,    66,     2,     3,    59,     4,   136,
+      64,    87,    88,   163,   164,   165,   166,   167,   168,   169,
+     170,   -11,     1,    66,     2,     3,    60,     4,    21,     5,
+       6,     7,     8,     9,    10,   135,    11,    12,    13,    14,
+     137,    15,    16,    17,    18,    19,    20,    21,    61,    22,
+     -11,    62,   178,   175,   177,    52,   -62,   100,   100,   100,
+     100,   100,   100,   100,   100,    72,   180,   182,   114,    89,
+      90,    63,    23,    81,   -62,    96,   111,   116,   118,   119,
+     121,   100,   115,   117,   117,   117,   117,   201,   133,   120,
+     114,     2,     3,   198,     4,   114,    64,   183,   111,    87,
+      88,    87,    88,   111,   115,     6,     7,     8,     9,   115,
+     196,    18,    74,   200,    21,    75,   202,   203,   153,     2,
+       3,   107,     4,   -82,    64,    92,   138,   139,   212,    87,
+      88,   215,    93,    87,    88,   140,   141,   -11,     1,   143,
+       2,     3,    21,     4,   221,     5,     6,     7,     8,     9,
+      10,    76,    11,    12,    13,    14,   155,    15,    16,    17,
+      18,    19,    20,    21,    77,    22,    80,    87,    88,    91,
+       1,    84,     2,     3,   101,     4,    85,     5,     6,     7,
+       8,     9,    10,   103,    11,    12,    13,    14,    23,    15,
+      16,    17,    18,    19,    20,    21,    52,    22,   -11,   143,
+     145,   147,     1,   148,     2,     3,    53,     4,   150,     5,
+     149,   151,   152,   154,    10,   156,   157,    12,    13,    14,
+      23,    15,    16,    17,    18,   158,    20,    21,     1,   197,
+       2,     3,   159,     4,   160,     5,   161,     2,     3,   104,
+       4,   105,    64,    12,    13,    14,   162,    15,    16,    17,
+      18,   171,    20,    21,     1,   174,     2,     3,   172,     4,
+      21,     5,   187,     2,     3,   191,     4,   194,    64,    12,
+      13,    14,   195,    15,    16,    17,    18,   204,    20,    21,
+       1,   176,     2,     3,   206,     4,    21,     5,   205,     2,
+       3,   208,     4,   209,    64,    12,    13,    14,   210,    15,
+      16,    17,    18,   211,    20,    21,     1,   179,     2,     3,
+     218,     4,    65,     5,   219,   220,   213,   222,     0,   199,
+     173,    12,    13,    14,   146,    15,    16,    17,    18,     0,
+      20,    21,     0,   181,     2,     3,     0,     4,     0,   109,
+       2,     3,     0,     4,     0,    64,     0,     0,     0,     0,
+       0,    15,    16,    17,    18,     0,     0,    21,     0,     0,
+      18,     0,     0,    21,   125,   126,   127,   128,   129,   130,
+       0,     0,     0,     0,     0,     0,     0,     0,   131,   132
 };
 
 static const yytype_int16 yycheck[] =
 {
-      23,    50,    62,    18,    18,    28,    29,   143,    17,     1,
-     182,     3,    24,    36,     6,    38,     3,   150,   151,     6,
-      54,    18,    19,    92,    93,    94,    43,    36,    37,    41,
-     163,   164,    24,    47,    49,    49,     3,    24,   210,     6,
-     212,     3,     4,     5,     6,    79,    69,    61,    62,    24,
-      84,    48,    36,    37,    46,    52,    53,    24,   191,    46,
-      83,    24,    24,   199,    61,    54,   126,   127,   128,   129,
-     130,   131,   132,   133,    54,    55,    56,    57,    58,    46,
-      54,    55,    56,    57,    58,     1,   100,    24,    24,    25,
-      79,     7,     8,     9,    10,    84,    54,    39,    40,    79,
-      85,    86,    24,     3,    84,    79,     6,    43,     3,    25,
-      84,     6,   126,   127,   128,   129,   130,   131,   132,   133,
-      42,    79,     1,    24,    24,    24,    84,     6,    25,    24,
-     144,    87,    88,     3,     4,    24,     6,   152,   152,    36,
-      37,    24,     0,     1,    24,     3,   195,    24,     6,     7,
-       8,     9,    10,    11,    24,    13,    14,    15,    16,    24,
-      18,    19,    20,    21,    22,    23,    24,   190,    26,    27,
-     193,    79,     0,   196,   197,     1,    84,     3,    17,    43,
-       6,    43,    43,     0,     1,   208,     3,    43,   211,     6,
-       7,     8,     9,    10,    11,    43,    13,    14,    15,    16,
-     223,    18,    19,    20,    21,    22,    23,    24,     1,    26,
-       3,    43,    43,     6,     7,     8,     9,    10,    11,     6,
-      13,    14,    15,    16,     6,    18,    19,    20,    21,    22,
-      23,    24,    24,    26,    27,     1,    24,     3,    42,    25,
-       6,    25,     1,    41,     3,    11,    25,     6,    14,    15,
-      16,    25,    18,    19,    20,    21,    25,    23,    24,     1,
-      26,     3,    21,    43,     6,    24,    27,    25,     3,    25,
-      25,     6,    14,    15,    16,    25,    18,    19,    20,    21,
-      25,    23,    24,     1,    26,     3,    21,    25,     6,    24,
-       6,    36,    37,    25,    25,    25,    14,    15,    16,    25,
-      18,    19,    20,    21,    25,    23,    24,     1,    26,     3,
-      36,    37,     6,    39,    40,    36,    37,    43,    25,    25,
-      14,    15,    16,    25,    18,    19,    20,    21,    12,    23,
-      24,     1,    26,     3,    36,    37,     6,    39,    40,    43,
-      26,    43,    42,    25,    14,    15,    16,    27,    18,    19,
-      20,    21,     3,    23,    24,     6,    26,   191,    27,    24,
-      25,    27,   199,    27,    27,    27,    26,    18,    19,    20,
-      21,    36,    37,    24,    39,    40,   144,    -1,    43,    27,
-      30,    31,    32,    33,    34,    35,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    44,    45
+      26,    55,    20,    21,    66,    31,    32,    54,   172,     3,
+       4,    45,     6,    39,     8,    41,    59,    26,    65,    26,
+      26,   177,    59,    38,    39,    26,     1,    26,     3,     4,
+      45,     6,    26,     8,    52,    53,    54,    43,    81,    57,
+      58,   205,    19,    86,    81,    71,    26,    65,    66,    86,
+     206,    26,   208,     1,    48,     3,     4,    26,     6,    85,
+       8,    38,    39,   125,   126,   127,   128,   129,   130,   131,
+     132,     0,     1,    48,     3,     4,    26,     6,    26,     8,
+       9,    10,    11,    12,    13,    81,    15,    16,    17,    18,
+      86,    20,    21,    22,    23,    24,    25,    26,    26,    28,
+      29,    26,   149,   147,   148,    26,    27,   125,   126,   127,
+     128,   129,   130,   131,   132,     0,   160,   161,    59,    41,
+      42,    26,    51,    19,    45,   143,    59,    60,    61,    62,
+      63,   149,    59,    60,    61,    62,    63,   191,    27,     1,
+      81,     3,     4,   187,     6,    86,     8,     1,    81,    38,
+      39,    38,    39,    86,    81,     9,    10,    11,    12,    86,
+     186,    23,    45,   189,    26,    45,   192,   193,    27,     3,
+       4,     5,     6,    27,     8,     1,    87,    88,   204,    38,
+      39,   207,     8,    38,    39,    89,    90,     0,     1,    44,
+       3,     4,    26,     6,   220,     8,     9,    10,    11,    12,
+      13,    45,    15,    16,    17,    18,    27,    20,    21,    22,
+      23,    24,    25,    26,    45,    28,    45,    38,    39,     8,
+       1,    45,     3,     4,     8,     6,    45,     8,     9,    10,
+      11,    12,    13,     8,    15,    16,    17,    18,    51,    20,
+      21,    22,    23,    24,    25,    26,    26,    28,    29,    44,
+      27,    27,     1,    27,     3,     4,    43,     6,    27,     8,
+      45,    27,    27,    27,    13,    27,    27,    16,    17,    18,
+      51,    20,    21,    22,    23,    27,    25,    26,     1,    28,
+       3,     4,    27,     6,    27,     8,    27,     3,     4,     5,
+       6,     7,     8,    16,    17,    18,    27,    20,    21,    22,
+      23,    29,    25,    26,     1,    28,     3,     4,    26,     6,
+      26,     8,    14,     3,     4,    45,     6,    27,     8,    16,
+      17,    18,     8,    20,    21,    22,    23,    28,    25,    26,
+       1,    28,     3,     4,    29,     6,    26,     8,    44,     3,
+       4,    29,     6,    27,     8,    16,    17,    18,    29,    20,
+      21,    22,    23,    29,    25,    26,     1,    28,     3,     4,
+      29,     6,    26,     8,    29,    28,   205,    29,    -1,   187,
+     143,    16,    17,    18,    96,    20,    21,    22,    23,    -1,
+      25,    26,    -1,    28,     3,     4,    -1,     6,    -1,     8,
+       3,     4,    -1,     6,    -1,     8,    -1,    -1,    -1,    -1,
+      -1,    20,    21,    22,    23,    -1,    -1,    26,    -1,    -1,
+      23,    -1,    -1,    26,    32,    33,    34,    35,    36,    37,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    46,    47
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     1,     3,     6,     7,     8,     9,    10,    11,    13,
-      14,    15,    16,    18,    19,    20,    21,    22,    23,    24,
-      26,    50,    51,    53,    56,    57,    58,    59,    60,    62,
-      67,    69,    70,    71,    72,    73,    74,    77,    81,    83,
-      84,    85,    86,    87,    88,    89,    43,    24,    41,    24,
-      24,    24,    24,    24,    24,    24,    24,    24,    24,     3,
-       6,    24,    46,    54,    55,    77,    85,     6,    85,    52,
-       0,    51,    43,    43,    43,    43,    51,    51,    43,    17,
-      51,    51,    43,    43,    17,    36,    37,    39,    40,     1,
-       6,     1,     3,     6,    77,    78,    85,     1,     3,     6,
-      24,    55,    77,     6,    83,     6,     4,     5,    85,     4,
-      85,     6,    68,    69,    70,    71,    72,    73,    69,    73,
-      69,    69,     1,    69,    55,    54,    30,    31,    32,    33,
-      34,    35,    44,    45,    25,    51,    68,    51,    68,    86,
-      86,    87,    87,    24,    42,    79,    79,    79,    79,    25,
-      25,    25,    43,    25,    25,    25,    25,    25,    25,    25,
-      25,    25,    25,    25,    25,    25,    54,    54,    54,    54,
-      54,    54,    54,    54,    27,     1,    80,    89,    78,    26,
-      53,    26,    53,    55,    26,    53,    26,    53,    25,     6,
-      64,    12,    65,    63,    65,    43,    76,    75,    26,    42,
-      51,    26,    53,    62,    51,    83,    51,    51,    82,    80,
-      27,    66,    27,    25,    27,    27,    51,    65,    51,    65,
-      61,    27,    27,    26,    51,    27
+       0,     1,     3,     4,     6,     8,     9,    10,    11,    12,
+      13,    15,    16,    17,    18,    20,    21,    22,    23,    24,
+      25,    26,    28,    51,    53,    54,    56,    59,    60,    61,
+      62,    63,    65,    70,    72,    73,    74,    75,    76,    77,
+      80,    84,    86,    87,    88,    89,    90,    91,    92,    93,
+      94,    45,    26,    43,    26,    26,    26,    26,    26,    26,
+      26,    26,    26,    26,     8,    26,    48,    57,    58,    88,
+      88,    55,     0,    54,    45,    45,    45,    45,    54,    54,
+      45,    19,    54,    54,    45,    45,    19,    38,    39,    41,
+      42,     8,     1,     8,     1,    81,    88,    88,     1,    58,
+      88,     8,    86,     8,     5,     7,    88,     5,    88,     8,
+      71,    72,    73,    74,    75,    76,    72,    76,    72,    72,
+       1,    72,    58,    88,    57,    32,    33,    34,    35,    36,
+      37,    46,    47,    27,    54,    71,    54,    71,    89,    89,
+      90,    90,    85,    44,    82,    27,    82,    27,    27,    45,
+      27,    27,    27,    27,    27,    27,    27,    27,    27,    27,
+      27,    27,    27,    57,    57,    57,    57,    57,    57,    57,
+      57,    29,    26,    81,    28,    56,    28,    56,    58,    28,
+      56,    28,    56,     1,    83,    93,    67,    14,    68,    66,
+      68,    45,    79,    78,    27,     8,    54,    28,    56,    65,
+      54,    86,    54,    54,    28,    44,    29,    69,    29,    27,
+      29,    29,    54,    83,    68,    54,    68,    64,    29,    29,
+      28,    54,    29
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    49,    50,    51,    52,    51,    51,    51,    51,    51,
-      51,    51,    53,    53,    53,    53,    53,    53,    53,    54,
-      54,    54,    54,    55,    55,    55,    55,    55,    55,    55,
-      55,    55,    56,    57,    57,    57,    58,    58,    59,    59,
-      59,    61,    60,    63,    62,    62,    64,    62,    62,    65,
-      65,    66,    65,    65,    67,    67,    67,    67,    67,    68,
-      68,    68,    68,    68,    68,    69,    69,    70,    71,    72,
-      73,    75,    74,    74,    76,    74,    74,    77,    78,    78,
-      78,    78,    79,    79,    80,    80,    80,    80,    82,    81,
-      83,    84,    84,    85,    85,    85,    86,    86,    86,    87,
-      87,    88,    88,    88,    89,    89,    89,    89
+       0,    52,    53,    54,    55,    54,    54,    54,    54,    54,
+      54,    54,    56,    56,    56,    56,    56,    56,    56,    57,
+      57,    58,    58,    58,    58,    58,    58,    58,    58,    58,
+      59,    60,    60,    60,    61,    61,    62,    62,    62,    64,
+      63,    66,    65,    65,    67,    65,    65,    68,    68,    69,
+      68,    68,    70,    70,    70,    70,    70,    71,    71,    71,
+      71,    71,    71,    72,    72,    73,    74,    75,    76,    78,
+      77,    77,    79,    77,    77,    80,    81,    81,    82,    82,
+      83,    83,    83,    83,    85,    84,    86,    87,    87,    88,
+      88,    88,    89,    89,    89,    90,    90,    91,    91,    91,
+      91,    92,    92,    93,    93,    93,    93,    94,    94
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
 static const yytype_int8 yyr2[] =
 {
        0,     2,     1,     2,     0,     4,     2,     2,     2,     2,
-       3,     0,     2,     2,     2,     2,     2,     2,     2,     1,
-       3,     1,     1,     2,     3,     3,     3,     3,     3,     3,
-       3,     3,     4,     4,     4,     4,     4,     4,     2,     2,
-       1,     0,    12,     0,     9,     6,     0,     9,     6,     2,
-       2,     0,     5,     0,     1,     1,     1,     1,     1,     1,
-       1,     1,     1,     1,     1,     3,     3,     4,     4,     4,
-       4,     0,     8,     5,     0,     8,     5,     4,     2,     2,
-       2,     2,     2,     0,     2,     4,     0,     1,     0,     9,
-       3,     2,     2,     3,     3,     1,     3,     3,     1,     1,
-       3,     1,     1,     1,     1,     1,     1,     1
+       3,     0,     2,     2,     2,     2,     2,     2,     2,     3,
+       1,     2,     3,     3,     3,     3,     3,     3,     3,     3,
+       4,     4,     4,     4,     4,     4,     2,     2,     1,     0,
+      12,     0,     9,     6,     0,     9,     6,     2,     2,     0,
+       5,     0,     1,     1,     1,     1,     1,     1,     1,     1,
+       1,     1,     1,     3,     3,     4,     4,     4,     4,     0,
+       8,     5,     0,     8,     5,     4,     2,     2,     2,     0,
+       2,     4,     0,     1,     0,     9,     3,     2,     2,     3,
+       3,     1,     3,     3,     1,     1,     3,     1,     1,     1,
+       1,     1,     1,     1,     1,     1,     1,     1,     1
 };
 
 
@@ -1753,466 +1906,496 @@ yydestruct (const char *yymsg,
   YY_IGNORE_MAYBE_UNINITIALIZED_BEGIN
   switch (yykind)
     {
-    case YYSYMBOL_NUM: /* NUM  */
-#line 329 "test.y"
+    case YYSYMBOL_INTEGER: /* INTEGER  */
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1760 "test.tab.c"
+#line 1913 "test.tab.c"
+        break;
+
+    case YYSYMBOL_FLOATING: /* FLOATING  */
+#line 474 "test.y"
+            {((*yyvaluep).text) = NULL;}
+#line 1919 "test.tab.c"
         break;
 
     case YYSYMBOL_STRING: /* STRING  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1766 "test.tab.c"
+#line 1925 "test.tab.c"
+        break;
+
+    case YYSYMBOL_EMPTY: /* EMPTY  */
+#line 474 "test.y"
+            {((*yyvaluep).text) = NULL;}
+#line 1931 "test.tab.c"
         break;
 
     case YYSYMBOL_CHAR: /* CHAR  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1772 "test.tab.c"
+#line 1937 "test.tab.c"
         break;
 
     case YYSYMBOL_ID: /* ID  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1778 "test.tab.c"
+#line 1943 "test.tab.c"
         break;
 
     case YYSYMBOL_INT: /* INT  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1784 "test.tab.c"
+#line 1949 "test.tab.c"
         break;
 
     case YYSYMBOL_FLOAT: /* FLOAT  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1790 "test.tab.c"
+#line 1955 "test.tab.c"
         break;
 
     case YYSYMBOL_ELEM: /* ELEM  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1796 "test.tab.c"
+#line 1961 "test.tab.c"
         break;
 
     case YYSYMBOL_SET: /* SET  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1802 "test.tab.c"
+#line 1967 "test.tab.c"
         break;
 
     case YYSYMBOL_IF: /* IF  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1808 "test.tab.c"
+#line 1973 "test.tab.c"
         break;
 
     case YYSYMBOL_ELSE: /* ELSE  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1814 "test.tab.c"
+#line 1979 "test.tab.c"
         break;
 
     case YYSYMBOL_FOR: /* FOR  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1820 "test.tab.c"
+#line 1985 "test.tab.c"
         break;
 
     case YYSYMBOL_READ: /* READ  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1826 "test.tab.c"
+#line 1991 "test.tab.c"
         break;
 
     case YYSYMBOL_WRITE: /* WRITE  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1832 "test.tab.c"
+#line 1997 "test.tab.c"
         break;
 
     case YYSYMBOL_WRITELN: /* WRITELN  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1838 "test.tab.c"
+#line 2003 "test.tab.c"
         break;
 
     case YYSYMBOL_IN: /* IN  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1844 "test.tab.c"
+#line 2009 "test.tab.c"
         break;
 
     case YYSYMBOL_IS_SET: /* IS_SET  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1850 "test.tab.c"
+#line 2015 "test.tab.c"
         break;
 
     case YYSYMBOL_ADD: /* ADD  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1856 "test.tab.c"
+#line 2021 "test.tab.c"
         break;
 
     case YYSYMBOL_REMOVE: /* REMOVE  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1862 "test.tab.c"
+#line 2027 "test.tab.c"
         break;
 
     case YYSYMBOL_EXISTS: /* EXISTS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1868 "test.tab.c"
+#line 2033 "test.tab.c"
         break;
 
     case YYSYMBOL_FORALL: /* FORALL  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1874 "test.tab.c"
+#line 2039 "test.tab.c"
         break;
 
     case YYSYMBOL_RETURN: /* RETURN  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1880 "test.tab.c"
+#line 2045 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENPAR: /* OPENPAR  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1886 "test.tab.c"
+#line 2051 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSEPAR: /* CLOSEPAR  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1892 "test.tab.c"
+#line 2057 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENCURLY: /* OPENCURLY  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1898 "test.tab.c"
+#line 2063 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSECURLY: /* CLOSECURLY  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1904 "test.tab.c"
+#line 2069 "test.tab.c"
         break;
 
     case YYSYMBOL_OPENBRAC: /* OPENBRAC  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1910 "test.tab.c"
+#line 2075 "test.tab.c"
         break;
 
     case YYSYMBOL_CLOSEBRAC: /* CLOSEBRAC  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1916 "test.tab.c"
+#line 2081 "test.tab.c"
         break;
 
     case YYSYMBOL_LESS: /* LESS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1922 "test.tab.c"
+#line 2087 "test.tab.c"
         break;
 
     case YYSYMBOL_LE: /* LE  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1928 "test.tab.c"
+#line 2093 "test.tab.c"
         break;
 
     case YYSYMBOL_EQ: /* EQ  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1934 "test.tab.c"
+#line 2099 "test.tab.c"
         break;
 
     case YYSYMBOL_NEQ: /* NEQ  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1940 "test.tab.c"
+#line 2105 "test.tab.c"
         break;
 
     case YYSYMBOL_GREATER: /* GREATER  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1946 "test.tab.c"
+#line 2111 "test.tab.c"
         break;
 
     case YYSYMBOL_GE: /* GE  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1952 "test.tab.c"
+#line 2117 "test.tab.c"
         break;
 
     case YYSYMBOL_PLUS: /* PLUS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1958 "test.tab.c"
+#line 2123 "test.tab.c"
         break;
 
     case YYSYMBOL_MINUS: /* MINUS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1964 "test.tab.c"
+#line 2129 "test.tab.c"
         break;
 
     case YYSYMBOL_DBS: /* DBS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1970 "test.tab.c"
+#line 2135 "test.tab.c"
         break;
 
     case YYSYMBOL_AST: /* AST  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1976 "test.tab.c"
+#line 2141 "test.tab.c"
         break;
 
     case YYSYMBOL_BS: /* BS  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1982 "test.tab.c"
+#line 2147 "test.tab.c"
         break;
 
     case YYSYMBOL_ASSIGN: /* ASSIGN  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1988 "test.tab.c"
+#line 2153 "test.tab.c"
         break;
 
     case YYSYMBOL_COMMA: /* COMMA  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 1994 "test.tab.c"
+#line 2159 "test.tab.c"
         break;
 
     case YYSYMBOL_SEMICOLON: /* SEMICOLON  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2000 "test.tab.c"
+#line 2165 "test.tab.c"
         break;
 
     case YYSYMBOL_OR: /* OR  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2006 "test.tab.c"
+#line 2171 "test.tab.c"
         break;
 
     case YYSYMBOL_AND: /* AND  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2012 "test.tab.c"
+#line 2177 "test.tab.c"
         break;
 
     case YYSYMBOL_NOT: /* NOT  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2018 "test.tab.c"
+#line 2183 "test.tab.c"
         break;
 
     case YYSYMBOL_AMP: /* AMP  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2024 "test.tab.c"
+#line 2189 "test.tab.c"
         break;
 
     case YYSYMBOL_PCENT: /* PCENT  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).text) = NULL;}
-#line 2030 "test.tab.c"
+#line 2195 "test.tab.c"
+        break;
+
+    case YYSYMBOL_VOID: /* VOID  */
+#line 474 "test.y"
+            {((*yyvaluep).text) = NULL;}
+#line 2201 "test.tab.c"
         break;
 
     case YYSYMBOL_statement: /* statement  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2036 "test.tab.c"
+#line 2207 "test.tab.c"
         break;
 
     case YYSYMBOL_single_line_statement: /* single_line_statement  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2042 "test.tab.c"
+#line 2213 "test.tab.c"
         break;
 
     case YYSYMBOL_comparg: /* comparg  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2048 "test.tab.c"
+#line 2219 "test.tab.c"
         break;
 
     case YYSYMBOL_comparison: /* comparison  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2054 "test.tab.c"
+#line 2225 "test.tab.c"
         break;
 
     case YYSYMBOL_read: /* read  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2060 "test.tab.c"
+#line 2231 "test.tab.c"
         break;
 
     case YYSYMBOL_write: /* write  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2066 "test.tab.c"
+#line 2237 "test.tab.c"
         break;
 
     case YYSYMBOL_writeln: /* writeln  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2072 "test.tab.c"
+#line 2243 "test.tab.c"
         break;
 
     case YYSYMBOL_return: /* return  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2078 "test.tab.c"
+#line 2249 "test.tab.c"
         break;
 
     case YYSYMBOL_for: /* for  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2084 "test.tab.c"
+#line 2255 "test.tab.c"
         break;
 
     case YYSYMBOL_if: /* if  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2090 "test.tab.c"
+#line 2261 "test.tab.c"
         break;
 
     case YYSYMBOL_else: /* else  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2096 "test.tab.c"
+#line 2267 "test.tab.c"
         break;
 
     case YYSYMBOL_conjuntoop: /* conjuntoop  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2102 "test.tab.c"
+#line 2273 "test.tab.c"
         break;
 
     case YYSYMBOL_conjuntoop1: /* conjuntoop1  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2108 "test.tab.c"
+#line 2279 "test.tab.c"
         break;
 
     case YYSYMBOL_pertinencia: /* pertinencia  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2114 "test.tab.c"
+#line 2285 "test.tab.c"
         break;
 
     case YYSYMBOL_tipagem: /* tipagem  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2120 "test.tab.c"
+#line 2291 "test.tab.c"
         break;
 
     case YYSYMBOL_inclusao: /* inclusao  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2126 "test.tab.c"
+#line 2297 "test.tab.c"
         break;
 
     case YYSYMBOL_remocao: /* remocao  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2132 "test.tab.c"
+#line 2303 "test.tab.c"
         break;
 
     case YYSYMBOL_selecao: /* selecao  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2138 "test.tab.c"
+#line 2309 "test.tab.c"
         break;
 
     case YYSYMBOL_iteracao: /* iteracao  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2144 "test.tab.c"
+#line 2315 "test.tab.c"
         break;
 
     case YYSYMBOL_function_call: /* function_call  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2150 "test.tab.c"
+#line 2321 "test.tab.c"
         break;
 
     case YYSYMBOL_args: /* args  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2156 "test.tab.c"
+#line 2327 "test.tab.c"
         break;
 
     case YYSYMBOL_args1: /* args1  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2162 "test.tab.c"
+#line 2333 "test.tab.c"
         break;
 
     case YYSYMBOL_funcargs: /* funcargs  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2168 "test.tab.c"
+#line 2339 "test.tab.c"
         break;
 
     case YYSYMBOL_function_declaration: /* function_declaration  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2174 "test.tab.c"
+#line 2345 "test.tab.c"
         break;
 
     case YYSYMBOL_assignment: /* assignment  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2180 "test.tab.c"
+#line 2351 "test.tab.c"
         break;
 
     case YYSYMBOL_variable_declaration: /* variable_declaration  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2186 "test.tab.c"
+#line 2357 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop: /* mathop  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2192 "test.tab.c"
+#line 2363 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop1: /* mathop1  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2198 "test.tab.c"
+#line 2369 "test.tab.c"
         break;
 
     case YYSYMBOL_mathop2: /* mathop2  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2204 "test.tab.c"
+#line 2375 "test.tab.c"
         break;
 
     case YYSYMBOL_matharg: /* matharg  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2210 "test.tab.c"
+#line 2381 "test.tab.c"
+        break;
+
+    case YYSYMBOL_function_type: /* function_type  */
+#line 474 "test.y"
+            {((*yyvaluep).node) = NULL;}
+#line 2387 "test.tab.c"
         break;
 
     case YYSYMBOL_type: /* type  */
-#line 329 "test.y"
+#line 474 "test.y"
             {((*yyvaluep).node) = NULL;}
-#line 2216 "test.tab.c"
+#line 2393 "test.tab.c"
+        break;
+
+    case YYSYMBOL_num: /* num  */
+#line 474 "test.y"
+            {((*yyvaluep).node) = NULL;}
+#line 2399 "test.tab.c"
         break;
 
       default:
@@ -2494,7 +2677,7 @@ yyreduce:
     switch (yyn)
       {
   case 2: /* inicio: statement  */
-#line 352 "test.y"
+#line 497 "test.y"
                                                                                         {
 													raiz = (yyvsp[0].node);
 													//(*raiz).escopo = 1;
@@ -2502,11 +2685,11 @@ yyreduce:
 														printf("ERRO SEMANTICO! NAO FOI DECLARADA UMA FUNCAO MAIN!\n");
 													}
 												}
-#line 2506 "test.tab.c"
+#line 2689 "test.tab.c"
     break;
 
   case 3: /* statement: single_line_statement statement  */
-#line 366 "test.y"
+#line 511 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2523,21 +2706,21 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2527 "test.tab.c"
+#line 2710 "test.tab.c"
     break;
 
   case 4: /* $@1: %empty  */
-#line 383 "test.y"
+#line 528 "test.y"
                                                                                                 {
 													escopoCounter++;
 													Push(pilhaEscopo,CriarStack(escopoCounter));
 													(yyvsp[0].text) = NULL;
 												}
-#line 2537 "test.tab.c"
+#line 2720 "test.tab.c"
     break;
 
   case 5: /* statement: OPENCURLY $@1 statement CLOSECURLY  */
-#line 388 "test.y"
+#line 533 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2556,11 +2739,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													Pop(pilhaEscopo);
 												}
-#line 2560 "test.tab.c"
+#line 2743 "test.tab.c"
     break;
 
   case 6: /* statement: function_declaration statement  */
-#line 407 "test.y"
+#line 552 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2577,11 +2760,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2581 "test.tab.c"
+#line 2764 "test.tab.c"
     break;
 
   case 7: /* statement: for statement  */
-#line 439 "test.y"
+#line 584 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2598,11 +2781,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2602 "test.tab.c"
+#line 2785 "test.tab.c"
     break;
 
   case 8: /* statement: if statement  */
-#line 455 "test.y"
+#line 600 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2619,11 +2802,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2623 "test.tab.c"
+#line 2806 "test.tab.c"
     break;
 
   case 9: /* statement: iteracao statement  */
-#line 471 "test.y"
+#line 616 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -2640,11 +2823,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2644 "test.tab.c"
+#line 2827 "test.tab.c"
     break;
 
   case 10: /* statement: variable_declaration SEMICOLON statement  */
-#line 487 "test.y"
+#line 632 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2662,11 +2845,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2666 "test.tab.c"
+#line 2849 "test.tab.c"
     break;
 
   case 11: /* statement: %empty  */
-#line 596 "test.y"
+#line 741 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -2679,11 +2862,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2683 "test.tab.c"
+#line 2866 "test.tab.c"
     break;
 
   case 12: /* single_line_statement: return SEMICOLON  */
-#line 613 "test.y"
+#line 758 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2699,11 +2882,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2703 "test.tab.c"
+#line 2886 "test.tab.c"
     break;
 
   case 13: /* single_line_statement: assignment SEMICOLON  */
-#line 629 "test.y"
+#line 774 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2719,11 +2902,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2723 "test.tab.c"
+#line 2906 "test.tab.c"
     break;
 
   case 14: /* single_line_statement: write SEMICOLON  */
-#line 645 "test.y"
+#line 790 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2739,11 +2922,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2743 "test.tab.c"
+#line 2926 "test.tab.c"
     break;
 
   case 15: /* single_line_statement: writeln SEMICOLON  */
-#line 661 "test.y"
+#line 806 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2759,11 +2942,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2763 "test.tab.c"
+#line 2946 "test.tab.c"
     break;
 
   case 16: /* single_line_statement: read SEMICOLON  */
-#line 677 "test.y"
+#line 822 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2779,11 +2962,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2783 "test.tab.c"
+#line 2966 "test.tab.c"
     break;
 
   case 17: /* single_line_statement: conjuntoop SEMICOLON  */
-#line 705 "test.y"
+#line 850 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2799,11 +2982,11 @@ yyreduce:
 													(*ancora).conversion = None;
 													(*ancora).tipoVirtual = 0;
 												}
-#line 2803 "test.tab.c"
+#line 2986 "test.tab.c"
     break;
 
   case 18: /* single_line_statement: error SEMICOLON  */
-#line 721 "test.y"
+#line 866 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -2818,40 +3001,11 @@ yyreduce:
 													(yyvsp[0].text) = NULL;
 													yyerrok;
 												}
-#line 2822 "test.tab.c"
+#line 3005 "test.tab.c"
     break;
 
-  case 19: /* comparg: ID  */
-#line 740 "test.y"
-                                                                                                {
-													no* ancora = (no*)malloc(sizeof(no));
-													(yyval.node) = ancora;
-													(*ancora).tipo = YYSYMBOL_comparg;
-													(*ancora).numFilhos = 0;
-													(*ancora).valor = strdup((yyvsp[0].text));
-													char ancora2[] = "ID";
-													(*ancora).nome = strdup(ancora2);
-													simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
-													if(ancoraSimb != NULL){ //Vamos começar a usar a tabela de simbolos! Se não acharmos este ID na tabela, devemos colocar-lo lá, mas sem valor! Só em assignment a gente coloca valor
-														(*ancora).refereTabela = ancoraSimb;
-													}
-													else{
-														//(*ancora).refereTabela = CriarSimbolo($1,0,NULL,escopoCounter); Tirei essa linha pq é hora de acusar erros semânticos! Se acharmos um ID que não foi declarado, temos q dar erro!
-														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
-														(*ancora).refereTabela = NULL;
-													}
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
-													free((yyvsp[0].text));
-
-													
-
-												}
-#line 2851 "test.tab.c"
-    break;
-
-  case 20: /* comparg: OPENPAR comparison CLOSEPAR  */
-#line 764 "test.y"
+  case 19: /* comparg: OPENPAR comparison CLOSEPAR  */
+#line 911 "test.y"
                                                                         {	
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -2862,52 +3016,34 @@ yyreduce:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ((yyvsp[-1].node))->tipoVirtual;
 													(yyval.node) = ancora;
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 2871 "test.tab.c"
+#line 3025 "test.tab.c"
     break;
 
-  case 21: /* comparg: NUM  */
-#line 779 "test.y"
-                                                                                                {
-													no* ancora = (no*)malloc(sizeof(no));
-													(*ancora).numFilhos = 0;
-													(*ancora).tipo = YYSYMBOL_comparg;
-													char ancora2[] = "NUM";
-													(*ancora).nome = strdup(ancora2);
-													(*ancora).valor = strdup((yyvsp[0].text));
-													(*ancora).refereTabela = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
-													(yyval.node) = ancora;
-													free((yyvsp[0].text));
-												}
-#line 2889 "test.tab.c"
-    break;
-
-  case 22: /* comparg: function_call  */
-#line 792 "test.y"
-                                                                                {
+  case 20: /* comparg: mathop  */
+#line 926 "test.y"
+                                                                                        {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
 													(*ancora).filhos[0] = (yyvsp[0].node);
 													(*ancora).tipo = YYSYMBOL_comparg;
-													char ancora2[] = "function_call";
+													char ancora2[] = "mathop";
 													(*ancora).nome = strdup(ancora2);
-													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
+													(*ancora).refereTabela = NULL;
+													(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 2907 "test.tab.c"
+#line 3043 "test.tab.c"
     break;
 
-  case 23: /* comparison: NOT comparg  */
-#line 808 "test.y"
+  case 21: /* comparison: NOT comparg  */
+#line 957 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -2917,16 +3053,27 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													switch(((yyvsp[0].node))->tipoVirtual){
+														case Elem:
+															(*ancora).conversion = ElemToIntLeft;
+															(*ancora).tipoVirtual = Int;
+															break;
+														case Set:
+															printf("ERRO SEMANTICO! EXPRESSAO RESULTANTE EM SET USADA EM OPERACAO INVALIDA! Linha: %d, Coluna: %d\n",linhaCount,colunaCount);
+															break;
+														default:
+															(*ancora).conversion = None;
+															(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
+															break;
+													}
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2926 "test.tab.c"
+#line 3073 "test.tab.c"
     break;
 
-  case 24: /* comparison: comparg AND comparg  */
-#line 822 "test.y"
+  case 22: /* comparison: comparg AND comparg  */
+#line 982 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2937,16 +3084,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2946 "test.tab.c"
+#line 3093 "test.tab.c"
     break;
 
-  case 25: /* comparison: comparg OR comparg  */
-#line 837 "test.y"
+  case 23: /* comparison: comparg OR comparg  */
+#line 997 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2957,16 +3104,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2966 "test.tab.c"
+#line 3113 "test.tab.c"
     break;
 
-  case 26: /* comparison: comparg GREATER comparg  */
-#line 852 "test.y"
+  case 24: /* comparison: comparg GREATER comparg  */
+#line 1012 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2977,16 +3124,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 2986 "test.tab.c"
+#line 3133 "test.tab.c"
     break;
 
-  case 27: /* comparison: comparg GE comparg  */
-#line 867 "test.y"
+  case 25: /* comparison: comparg GE comparg  */
+#line 1027 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -2997,16 +3144,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3006 "test.tab.c"
+#line 3153 "test.tab.c"
     break;
 
-  case 28: /* comparison: comparg LESS comparg  */
-#line 882 "test.y"
+  case 26: /* comparison: comparg LESS comparg  */
+#line 1042 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3017,16 +3164,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3026 "test.tab.c"
+#line 3173 "test.tab.c"
     break;
 
-  case 29: /* comparison: comparg LE comparg  */
-#line 897 "test.y"
+  case 27: /* comparison: comparg LE comparg  */
+#line 1057 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3037,16 +3184,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3046 "test.tab.c"
+#line 3193 "test.tab.c"
     break;
 
-  case 30: /* comparison: comparg EQ comparg  */
-#line 912 "test.y"
+  case 28: /* comparison: comparg EQ comparg  */
+#line 1072 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3057,16 +3204,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3066 "test.tab.c"
+#line 3213 "test.tab.c"
     break;
 
-  case 31: /* comparison: comparg NEQ comparg  */
-#line 927 "test.y"
+  case 29: /* comparison: comparg NEQ comparg  */
+#line 1087 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-2].node);
@@ -3077,16 +3224,16 @@ yyreduce:
 													(*ancora).nome = strdup(ancora2);
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
-													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+													(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3086 "test.tab.c"
+#line 3233 "test.tab.c"
     break;
 
-  case 32: /* read: READ OPENPAR ID CLOSEPAR  */
-#line 945 "test.y"
+  case 30: /* read: READ OPENPAR ID CLOSEPAR  */
+#line 1105 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3098,7 +3245,7 @@ yyreduce:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-1].text));
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO! Linha: %d, Coluna: %d\n",(yyvsp[-1].text),linhaCount,colunaCount);
 														(*ancora).refereTabela = NULL;
 													}
 													(yyval.node) = ancora;
@@ -3110,11 +3257,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3114 "test.tab.c"
+#line 3261 "test.tab.c"
     break;
 
-  case 33: /* write: WRITE OPENPAR mathop CLOSEPAR  */
-#line 972 "test.y"
+  case 31: /* write: WRITE OPENPAR mathop CLOSEPAR  */
+#line 1132 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3131,11 +3278,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3135 "test.tab.c"
+#line 3282 "test.tab.c"
     break;
 
-  case 34: /* write: WRITE OPENPAR STRING CLOSEPAR  */
-#line 989 "test.y"
+  case 32: /* write: WRITE OPENPAR STRING CLOSEPAR  */
+#line 1149 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3152,11 +3299,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3156 "test.tab.c"
+#line 3303 "test.tab.c"
     break;
 
-  case 35: /* write: WRITE OPENPAR CHAR CLOSEPAR  */
-#line 1005 "test.y"
+  case 33: /* write: WRITE OPENPAR CHAR CLOSEPAR  */
+#line 1165 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3173,11 +3320,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3177 "test.tab.c"
+#line 3324 "test.tab.c"
     break;
 
-  case 36: /* writeln: WRITELN OPENPAR mathop CLOSEPAR  */
-#line 1026 "test.y"
+  case 34: /* writeln: WRITELN OPENPAR mathop CLOSEPAR  */
+#line 1186 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3194,11 +3341,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3198 "test.tab.c"
+#line 3345 "test.tab.c"
     break;
 
-  case 37: /* writeln: WRITELN OPENPAR STRING CLOSEPAR  */
-#line 1043 "test.y"
+  case 35: /* writeln: WRITELN OPENPAR STRING CLOSEPAR  */
+#line 1203 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3215,11 +3362,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3219 "test.tab.c"
+#line 3366 "test.tab.c"
     break;
 
-  case 38: /* return: RETURN comparison  */
-#line 1068 "test.y"
+  case 36: /* return: RETURN comparison  */
+#line 1228 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3235,11 +3382,11 @@ yyreduce:
 													(yyvsp[-1].text) = NULL;
 													//free($3);
 												}
-#line 3239 "test.tab.c"
+#line 3386 "test.tab.c"
     break;
 
-  case 39: /* return: RETURN mathop  */
-#line 1083 "test.y"
+  case 37: /* return: RETURN mathop  */
+#line 1243 "test.y"
                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3255,11 +3402,11 @@ yyreduce:
 													(yyvsp[-1].text) = NULL;
 													//free($3);
 												}
-#line 3259 "test.tab.c"
+#line 3406 "test.tab.c"
     break;
 
-  case 40: /* return: RETURN  */
-#line 1098 "test.y"
+  case 38: /* return: RETURN  */
+#line 1258 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3274,11 +3421,11 @@ yyreduce:
 													(yyvsp[0].text) = NULL;
 													//free($2);
 												}
-#line 3278 "test.tab.c"
+#line 3425 "test.tab.c"
     break;
 
-  case 41: /* $@2: %empty  */
-#line 1115 "test.y"
+  case 39: /* $@2: %empty  */
+#line 1275 "test.y"
                                                                                                                                                         {
 																													escopoCounter++;
 																													Push(pilhaEscopo,CriarStack(escopoCounter));
@@ -3290,11 +3437,11 @@ yyreduce:
 																													
 																													
 																												}
-#line 3294 "test.tab.c"
+#line 3441 "test.tab.c"
     break;
 
-  case 42: /* for: FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR $@2 OPENCURLY statement CLOSECURLY  */
-#line 1126 "test.y"
+  case 40: /* for: FOR OPENPAR assignment SEMICOLON comparison SEMICOLON assignment CLOSEPAR $@2 OPENCURLY statement CLOSECURLY  */
+#line 1286 "test.y"
                                                                                                                                                                                                 {
 																													no* ancora = (no*)malloc(sizeof(no));
 																													(*ancora).filhos[0] = (yyvsp[-9].node);
@@ -3315,21 +3462,21 @@ yyreduce:
 																													(yyval.node) = ancora;
 																													Pop(pilhaEscopo);
 																												}
-#line 3319 "test.tab.c"
+#line 3466 "test.tab.c"
     break;
 
-  case 43: /* $@3: %empty  */
-#line 1151 "test.y"
+  case 41: /* $@3: %empty  */
+#line 1311 "test.y"
                                                                                                                                                                                                                         {
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
 																												
 																											}
-#line 3329 "test.tab.c"
+#line 3476 "test.tab.c"
     break;
 
-  case 44: /* if: IF OPENPAR comparison CLOSEPAR OPENCURLY $@3 statement CLOSECURLY else  */
-#line 1156 "test.y"
+  case 42: /* if: IF OPENPAR comparison CLOSEPAR OPENCURLY $@3 statement CLOSECURLY else  */
+#line 1316 "test.y"
                                                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-6].node);
@@ -3351,11 +3498,11 @@ yyreduce:
 																												Pop(pilhaEscopo);
 																												(yyval.node) = ancora;
 																											}
-#line 3355 "test.tab.c"
+#line 3502 "test.tab.c"
     break;
 
-  case 45: /* if: IF OPENPAR comparison CLOSEPAR single_line_statement else  */
-#line 1177 "test.y"
+  case 43: /* if: IF OPENPAR comparison CLOSEPAR single_line_statement else  */
+#line 1337 "test.y"
                                                                                                                                                         {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-3].node);
@@ -3374,21 +3521,21 @@ yyreduce:
 																												(yyvsp[-4].text) = NULL;
 																												(yyvsp[-2].text) = NULL;
 																											}
-#line 3378 "test.tab.c"
+#line 3525 "test.tab.c"
     break;
 
-  case 46: /* $@4: %empty  */
-#line 1196 "test.y"
+  case 44: /* $@4: %empty  */
+#line 1356 "test.y"
                                                                                                                                                                                                                         {
 																												escopoCounter++;
 																												Push(pilhaEscopo,CriarStack(escopoCounter));
 																												
 																											}
-#line 3388 "test.tab.c"
+#line 3535 "test.tab.c"
     break;
 
-  case 47: /* if: IF OPENPAR error CLOSEPAR OPENCURLY $@4 statement CLOSECURLY else  */
-#line 1201 "test.y"
+  case 45: /* if: IF OPENPAR error CLOSEPAR OPENCURLY $@4 statement CLOSECURLY else  */
+#line 1361 "test.y"
                                                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(yyvsp[-8].text) = NULL;
@@ -3410,11 +3557,11 @@ yyreduce:
 																												(yyval.node) = ancora;
 																												yyerrok;
 																											}
-#line 3414 "test.tab.c"
+#line 3561 "test.tab.c"
     break;
 
-  case 48: /* if: IF OPENPAR error CLOSEPAR single_line_statement else  */
-#line 1222 "test.y"
+  case 46: /* if: IF OPENPAR error CLOSEPAR single_line_statement else  */
+#line 1382 "test.y"
                                                                                                                                                                 {
 																												no* ancora = (no*)malloc(sizeof(no));
 																												(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3433,11 +3580,11 @@ yyreduce:
 																												(yyvsp[-2].text) = NULL;
 																												yyerrok;
 																											}
-#line 3437 "test.tab.c"
+#line 3584 "test.tab.c"
     break;
 
-  case 49: /* else: ELSE if  */
-#line 1243 "test.y"
+  case 47: /* else: ELSE if  */
+#line 1403 "test.y"
                                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3452,11 +3599,11 @@ yyreduce:
 														(yyval.node) = ancora;
 														free((yyvsp[-1].text));
 													}
-#line 3456 "test.tab.c"
+#line 3603 "test.tab.c"
     break;
 
-  case 50: /* else: ELSE single_line_statement  */
-#line 1257 "test.y"
+  case 48: /* else: ELSE single_line_statement  */
+#line 1417 "test.y"
                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[0].node);
@@ -3471,22 +3618,22 @@ yyreduce:
 														(yyval.node) = ancora;
 														(yyvsp[-1].text) = NULL;
 													}
-#line 3475 "test.tab.c"
+#line 3622 "test.tab.c"
     break;
 
-  case 51: /* $@5: %empty  */
-#line 1271 "test.y"
+  case 49: /* $@5: %empty  */
+#line 1431 "test.y"
                                                                                         {
 														escopoCounter++;
 														Push(pilhaEscopo,CriarStack(escopoCounter));
 														(yyvsp[-1].text) = NULL;
 														(yyvsp[0].text) = NULL;
 													}
-#line 3486 "test.tab.c"
+#line 3633 "test.tab.c"
     break;
 
-  case 52: /* else: ELSE OPENCURLY $@5 statement CLOSECURLY  */
-#line 1277 "test.y"
+  case 50: /* else: ELSE OPENCURLY $@5 statement CLOSECURLY  */
+#line 1437 "test.y"
                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).filhos[0] = (yyvsp[-1].node);
@@ -3502,11 +3649,11 @@ yyreduce:
 														(yyvsp[0].text) = NULL;
 														Pop(pilhaEscopo);
 													}
-#line 3506 "test.tab.c"
+#line 3653 "test.tab.c"
     break;
 
-  case 53: /* else: %empty  */
-#line 1292 "test.y"
+  case 51: /* else: %empty  */
+#line 1452 "test.y"
                                                                                                 {
 														no* ancora = (no*)malloc(sizeof(no));
 														(*ancora).numFilhos = 0;
@@ -3519,11 +3666,11 @@ yyreduce:
 														(*ancora).tipoVirtual = 0;
 														(yyval.node) = ancora;
 													}
-#line 3523 "test.tab.c"
+#line 3670 "test.tab.c"
     break;
 
-  case 54: /* conjuntoop: pertinencia  */
-#line 1307 "test.y"
+  case 52: /* conjuntoop: pertinencia  */
+#line 1467 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3537,11 +3684,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3541 "test.tab.c"
+#line 3688 "test.tab.c"
     break;
 
-  case 55: /* conjuntoop: tipagem  */
-#line 1320 "test.y"
+  case 53: /* conjuntoop: tipagem  */
+#line 1480 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3555,11 +3702,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3559 "test.tab.c"
+#line 3706 "test.tab.c"
     break;
 
-  case 56: /* conjuntoop: inclusao  */
-#line 1333 "test.y"
+  case 54: /* conjuntoop: inclusao  */
+#line 1493 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3573,11 +3720,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3577 "test.tab.c"
+#line 3724 "test.tab.c"
     break;
 
-  case 57: /* conjuntoop: remocao  */
-#line 1346 "test.y"
+  case 55: /* conjuntoop: remocao  */
+#line 1506 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3591,11 +3738,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3595 "test.tab.c"
+#line 3742 "test.tab.c"
     break;
 
-  case 58: /* conjuntoop: selecao  */
-#line 1359 "test.y"
+  case 56: /* conjuntoop: selecao  */
+#line 1519 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3609,11 +3756,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3613 "test.tab.c"
+#line 3760 "test.tab.c"
     break;
 
-  case 59: /* conjuntoop1: pertinencia  */
-#line 1375 "test.y"
+  case 57: /* conjuntoop1: pertinencia  */
+#line 1535 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3627,11 +3774,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3631 "test.tab.c"
+#line 3778 "test.tab.c"
     break;
 
-  case 60: /* conjuntoop1: tipagem  */
-#line 1388 "test.y"
+  case 58: /* conjuntoop1: tipagem  */
+#line 1548 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3645,11 +3792,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3649 "test.tab.c"
+#line 3796 "test.tab.c"
     break;
 
-  case 61: /* conjuntoop1: inclusao  */
-#line 1401 "test.y"
+  case 59: /* conjuntoop1: inclusao  */
+#line 1561 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3663,11 +3810,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3667 "test.tab.c"
+#line 3814 "test.tab.c"
     break;
 
-  case 62: /* conjuntoop1: remocao  */
-#line 1414 "test.y"
+  case 60: /* conjuntoop1: remocao  */
+#line 1574 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3681,11 +3828,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3685 "test.tab.c"
+#line 3832 "test.tab.c"
     break;
 
-  case 63: /* conjuntoop1: selecao  */
-#line 1427 "test.y"
+  case 61: /* conjuntoop1: selecao  */
+#line 1587 "test.y"
                                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3699,11 +3846,11 @@ yyreduce:
 													(*ancora).tipoVirtual = 0;
 													(yyval.node) = ancora;
 												}
-#line 3703 "test.tab.c"
+#line 3850 "test.tab.c"
     break;
 
-  case 64: /* conjuntoop1: ID  */
-#line 1440 "test.y"
+  case 62: /* conjuntoop1: ID  */
+#line 1600 "test.y"
                                                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 0;
@@ -3715,7 +3862,7 @@ yyreduce:
 														(*ancora).refereTabela = ancoraSimb;
 													}
 													else{
-														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
+														printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO! Linha: %d, Coluna: %d\n",(yyvsp[0].text),linhaCount,colunaCount);
 														(*ancora).refereTabela = NULL;
 													}
 													(*ancora).valor = strdup((yyvsp[0].text));
@@ -3724,11 +3871,11 @@ yyreduce:
 													free((yyvsp[0].text));
 													(yyval.node) = ancora;
 												}
-#line 3728 "test.tab.c"
+#line 3875 "test.tab.c"
     break;
 
-  case 65: /* pertinencia: mathop IN conjuntoop1  */
-#line 1463 "test.y"
+  case 63: /* pertinencia: mathop IN conjuntoop1  */
+#line 1623 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -3744,11 +3891,11 @@ yyreduce:
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3748 "test.tab.c"
+#line 3895 "test.tab.c"
     break;
 
-  case 66: /* pertinencia: selecao IN conjuntoop1  */
-#line 1478 "test.y"
+  case 64: /* pertinencia: selecao IN conjuntoop1  */
+#line 1638 "test.y"
                                                                         {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 2;
@@ -3764,11 +3911,11 @@ yyreduce:
 													(yyval.node) = ancora;
 													(yyvsp[-1].text) = NULL;
 												}
-#line 3768 "test.tab.c"
+#line 3915 "test.tab.c"
     break;
 
-  case 67: /* tipagem: IS_SET OPENPAR conjuntoop1 CLOSEPAR  */
-#line 1496 "test.y"
+  case 65: /* tipagem: IS_SET OPENPAR conjuntoop1 CLOSEPAR  */
+#line 1656 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3785,11 +3932,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3789 "test.tab.c"
+#line 3936 "test.tab.c"
     break;
 
-  case 68: /* inclusao: ADD OPENPAR pertinencia CLOSEPAR  */
-#line 1515 "test.y"
+  case 66: /* inclusao: ADD OPENPAR pertinencia CLOSEPAR  */
+#line 1675 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3806,11 +3953,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3810 "test.tab.c"
+#line 3957 "test.tab.c"
     break;
 
-  case 69: /* remocao: REMOVE OPENPAR pertinencia CLOSEPAR  */
-#line 1534 "test.y"
+  case 67: /* remocao: REMOVE OPENPAR pertinencia CLOSEPAR  */
+#line 1694 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3827,11 +3974,11 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3831 "test.tab.c"
+#line 3978 "test.tab.c"
     break;
 
-  case 70: /* selecao: EXISTS OPENPAR pertinencia CLOSEPAR  */
-#line 1554 "test.y"
+  case 68: /* selecao: EXISTS OPENPAR pertinencia CLOSEPAR  */
+#line 1714 "test.y"
                                                                 {
 													no* ancora = (no*)malloc(sizeof(no));
 													(*ancora).numFilhos = 1;
@@ -3848,21 +3995,21 @@ yyreduce:
 													(yyvsp[-2].text) = NULL;
 													(yyvsp[0].text) = NULL;
 												}
-#line 3852 "test.tab.c"
+#line 3999 "test.tab.c"
     break;
 
-  case 71: /* $@6: %empty  */
-#line 1574 "test.y"
+  case 69: /* $@6: %empty  */
+#line 1734 "test.y"
                                                                                                                                                         {
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																				
 																			}
-#line 3862 "test.tab.c"
+#line 4009 "test.tab.c"
     break;
 
-  case 72: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR OPENCURLY $@6 statement CLOSECURLY  */
-#line 1579 "test.y"
+  case 70: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR OPENCURLY $@6 statement CLOSECURLY  */
+#line 1739 "test.y"
                                                                                                                                 {
 		 																		(yyvsp[-7].text) = NULL;
 																				(yyvsp[-6].text) = NULL;
@@ -3883,11 +4030,11 @@ yyreduce:
 																				Pop(pilhaEscopo);
 																				(yyval.node) = ancora;
 																			}
-#line 3887 "test.tab.c"
+#line 4034 "test.tab.c"
     break;
 
-  case 73: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR single_line_statement  */
-#line 1599 "test.y"
+  case 71: /* iteracao: FORALL OPENPAR pertinencia CLOSEPAR single_line_statement  */
+#line 1759 "test.y"
                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 2;
@@ -3905,21 +4052,21 @@ yyreduce:
 																				(yyvsp[-3].text) = NULL;
 																				(yyvsp[-1].text) = NULL;
 																			}
-#line 3909 "test.tab.c"
+#line 4056 "test.tab.c"
     break;
 
-  case 74: /* $@7: %empty  */
-#line 1617 "test.y"
+  case 72: /* $@7: %empty  */
+#line 1777 "test.y"
                                                                                                                                                         {
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																				
 																			}
-#line 3919 "test.tab.c"
+#line 4066 "test.tab.c"
     break;
 
-  case 75: /* iteracao: FORALL OPENPAR error CLOSEPAR OPENCURLY $@7 statement CLOSECURLY  */
-#line 1622 "test.y"
+  case 73: /* iteracao: FORALL OPENPAR error CLOSEPAR OPENCURLY $@7 statement CLOSECURLY  */
+#line 1782 "test.y"
                                                                                                                                 {
 		 																		(yyvsp[-7].text) = NULL;
 																				(yyvsp[-6].text) = NULL;
@@ -3940,11 +4087,11 @@ yyreduce:
 																				(yyval.node) = ancora;
 																				yyerrok;
 																			}
-#line 3944 "test.tab.c"
+#line 4091 "test.tab.c"
     break;
 
-  case 76: /* iteracao: FORALL OPENPAR error CLOSEPAR single_line_statement  */
-#line 1642 "test.y"
+  case 74: /* iteracao: FORALL OPENPAR error CLOSEPAR single_line_statement  */
+#line 1802 "test.y"
                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -3962,11 +4109,11 @@ yyreduce:
 																				(yyvsp[-1].text) = NULL;
 																				yyerrok;
 																			}
-#line 3966 "test.tab.c"
+#line 4113 "test.tab.c"
     break;
 
-  case 77: /* function_call: ID OPENPAR args CLOSEPAR  */
-#line 1662 "test.y"
+  case 75: /* function_call: ID OPENPAR args CLOSEPAR  */
+#line 1822 "test.y"
                                                                                                                                 {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -3978,86 +4125,44 @@ yyreduce:
 																				simbolo *ancoraSimb = VerificarEscopo((yyvsp[-3].text));
 																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
+																					(*ancora).tipoVirtual = (*ancoraSimb).returnType;
 																				}
 																				else{
 																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-3].text));
 																					(*ancora).refereTabela = NULL;
+																					(*ancora).tipoVirtual = 0;
 																				}
 																				(*ancora).conversion = None;
-																				(*ancora).tipoVirtual = 0;
+																				
 																				(yyval.node) = ancora;
 																				(yyvsp[-3].text) = NULL;
 																				(yyvsp[-2].text) = NULL;
 																				(yyvsp[0].text) = NULL;
 																			}
-#line 3994 "test.tab.c"
+#line 4143 "test.tab.c"
     break;
 
-  case 78: /* args: ID args1  */
-#line 1695 "test.y"
-                                                {
-								no* ancora = (no*)malloc(sizeof(no));
-								(*ancora).numFilhos = 1;
-								(*ancora).filhos[0] = (yyvsp[0].node);
-								(*ancora).tipo = YYSYMBOL_args;
-								char ancora2[] = "ID";
-								(*ancora).nome = strdup(ancora2);
-								simbolo *ancoraSimb = VerificarEscopo((yyvsp[-1].text));
-								if(ancoraSimb != NULL){ 
-									(*ancora).refereTabela = ancoraSimb;
-								}
-								else{
-									printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-1].text));
-									(*ancora).refereTabela = NULL;
-								}
-								(*ancora).valor = strdup((yyvsp[-1].text));
-								(*ancora).conversion = None;
-								(*ancora).tipoVirtual = 0;
-								free((yyvsp[-1].text));
-								(yyval.node) = ancora;
-							}
-#line 4020 "test.tab.c"
-    break;
-
-  case 79: /* args: NUM args1  */
-#line 1716 "test.y"
-                                                {	
-								no* ancora = (no*)malloc(sizeof(no));
-								(*ancora).numFilhos = 1;
-								(*ancora).filhos[0] = (yyvsp[0].node);
-								(*ancora).tipo = YYSYMBOL_args;
-								char ancora2[] = "NUM";
-								(*ancora).nome = strdup(ancora2);
-								(*ancora).refereTabela = NULL;
-								(*ancora).valor = strdup((yyvsp[-1].text));
-								(*ancora).conversion = None;
-								(*ancora).tipoVirtual = 0;
-								free((yyvsp[-1].text));
-								(yyval.node) = ancora;
-							}
-#line 4039 "test.tab.c"
-    break;
-
-  case 80: /* args: function_call args1  */
-#line 1730 "test.y"
-                                    {	
+  case 76: /* args: mathop args1  */
+#line 1857 "test.y"
+                                        {
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 2;
 								(*ancora).filhos[0] = (yyvsp[-1].node);
-								(*ancora).filhos[0] = (yyvsp[0].node);
+								(*ancora).filhos[1] = (yyvsp[0].node);
 								(*ancora).tipo = YYSYMBOL_args;
-								char ancora2[] = "function_call";
+								char ancora2[] = "mathop";
 								(*ancora).nome = strdup(ancora2);
 								(*ancora).refereTabela = NULL;
+								(*ancora).valor = strdup(((yyvsp[-1].node))->valor);
 								(*ancora).conversion = None;
 								(*ancora).tipoVirtual = 0;
 								(yyval.node) = ancora;
 							}
-#line 4057 "test.tab.c"
+#line 4162 "test.tab.c"
     break;
 
-  case 81: /* args: error args1  */
-#line 1743 "test.y"
+  case 77: /* args: error args1  */
+#line 1898 "test.y"
                                         {	
 								no* ancora = (no*)malloc(sizeof(no));
 								(*ancora).numFilhos = 1;
@@ -4071,11 +4176,11 @@ yyreduce:
 								(yyval.node) = ancora;
 								yyerrok;
 							}
-#line 4075 "test.tab.c"
+#line 4180 "test.tab.c"
     break;
 
-  case 82: /* args1: COMMA args  */
-#line 1759 "test.y"
+  case 78: /* args1: COMMA args  */
+#line 1914 "test.y"
                                         {
 							no* ancora = (no*)malloc(sizeof(no));
 							(*ancora).numFilhos = 1;
@@ -4090,11 +4195,11 @@ yyreduce:
 							(yyval.node) = ancora;
 							(yyvsp[-1].text) = NULL;
 						}
-#line 4094 "test.tab.c"
+#line 4199 "test.tab.c"
     break;
 
-  case 83: /* args1: %empty  */
-#line 1773 "test.y"
+  case 79: /* args1: %empty  */
+#line 1928 "test.y"
                                         {
 							no* ancora = (no*)malloc(sizeof(no));
 							(*ancora).numFilhos = 0;
@@ -4107,11 +4212,11 @@ yyreduce:
 							(*ancora).tipoVirtual = 0;
 							(yyval.node) = ancora;
 						}
-#line 4111 "test.tab.c"
+#line 4216 "test.tab.c"
     break;
 
-  case 84: /* funcargs: type ID  */
-#line 1788 "test.y"
+  case 80: /* funcargs: type ID  */
+#line 1943 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 1;
@@ -4120,24 +4225,19 @@ yyreduce:
 									char ancora2[] = "single";
 									(*ancora).nome = strdup(ancora2);
 									simbolo *ancoraSimb = VerificarEscopo((yyvsp[0].text));
-									if(ancoraSimb != NULL){ 
-										(*ancora).refereTabela = ancoraSimb;
-									}
-									else{
-										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[0].text));
-										(*ancora).refereTabela = NULL;
-									}
 									(*ancora).valor = strdup((yyvsp[0].text));
+									(*ancora).refereTabela = CriarSimbolo((yyvsp[0].text),atoi(((no*)(yyvsp[-1].node))->valor),NULL,escopoCounter);
+									
 									(*ancora).conversion = None;
 									(*ancora).tipoVirtual = 0;
 									free((yyvsp[0].text));
 									(yyval.node) = ancora;
 								}
-#line 4137 "test.tab.c"
+#line 4237 "test.tab.c"
     break;
 
-  case 85: /* funcargs: type ID COMMA funcargs  */
-#line 1809 "test.y"
+  case 81: /* funcargs: type ID COMMA funcargs  */
+#line 1959 "test.y"
                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 2;
@@ -4147,26 +4247,19 @@ yyreduce:
 									char ancora2[] = "comma";
 									(*ancora).nome = strdup(ancora2);
 									//printf("\n\nOI %s OI\n\n",$2);
-									simbolo *ancoraSimb = VerificarEscopo((yyvsp[-2].text));
-									if(ancoraSimb != NULL){ 
-										(*ancora).refereTabela = ancoraSimb;
-									}
-									else{
-										printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",(yyvsp[-2].text));
-										(*ancora).refereTabela = NULL;
-									}
 									(*ancora).valor = strdup((yyvsp[-2].text));
+									(*ancora).refereTabela = CriarSimbolo((yyvsp[-2].text),atoi(((no*)(yyvsp[-3].node))->valor),NULL,escopoCounter);
 									(*ancora).conversion = None;
 									(*ancora).tipoVirtual = 0;
 									free((yyvsp[-2].text));
 									(yyvsp[-1].text) = NULL;
 									(yyval.node) = ancora;
 								}
-#line 4166 "test.tab.c"
+#line 4259 "test.tab.c"
     break;
 
-  case 86: /* funcargs: %empty  */
-#line 1833 "test.y"
+  case 82: /* funcargs: %empty  */
+#line 1976 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 0;
@@ -4179,11 +4272,11 @@ yyreduce:
 									(*ancora).tipoVirtual = 0;
 									(yyval.node) = ancora;
 								}
-#line 4183 "test.tab.c"
+#line 4276 "test.tab.c"
     break;
 
-  case 87: /* funcargs: error  */
-#line 1845 "test.y"
+  case 83: /* funcargs: error  */
+#line 1988 "test.y"
                                                         {
 									no* ancora = (no*)malloc(sizeof(no));
 									(*ancora).numFilhos = 0;
@@ -4197,54 +4290,55 @@ yyreduce:
 									(yyval.node) = ancora;
 									yyerrok;
 								}
-#line 4201 "test.tab.c"
+#line 4294 "test.tab.c"
     break;
 
-  case 88: /* $@8: %empty  */
-#line 1863 "test.y"
-                                                                                                                                                        {
+  case 84: /* $@8: %empty  */
+#line 2006 "test.y"
+                                                                                                                                                        { //Declaração de função é um pouco estranha, pq o escopo da função é diferente dos argumentos
 																				escopoCounter++;
 																				Push(pilhaEscopo,CriarStack(escopoCounter));
 																			}
-#line 4210 "test.tab.c"
+#line 4303 "test.tab.c"
     break;
 
-  case 89: /* function_declaration: type ID OPENPAR funcargs CLOSEPAR OPENCURLY $@8 statement CLOSECURLY  */
-#line 1867 "test.y"
-                                                                                                                                {
-																				(yyvsp[-6].text) = NULL;
-																				(yyvsp[-4].text) = NULL;
+  case 85: /* function_declaration: function_type ID $@8 OPENPAR funcargs CLOSEPAR OPENCURLY statement CLOSECURLY  */
+#line 2010 "test.y"
+                                                                                                {
+																				(yyvsp[-5].text) = NULL;
 																				(yyvsp[-3].text) = NULL;
+																				(yyvsp[-2].text) = NULL;
+																				(yyvsp[0].text) = NULL;
 																				no* ancora = (no*)malloc(sizeof(no));
+																				int tipoRetorno = ConverteRetornoTipo((yyvsp[-8].node));
+																				int realEscopo;
 																				(*ancora).numFilhos = 3;
 																				(*ancora).filhos[0] = (yyvsp[-8].node);
-																				(*ancora).filhos[1] = (yyvsp[-5].node);
-																				
+																				(*ancora).filhos[1] = (yyvsp[-4].node);
+																				(*ancora).filhos[2] = (yyvsp[-1].node);
 																				(*ancora).tipo = YYSYMBOL_function_declaration;
 																				char ancora2[] = "function_declaration";
 																				(*ancora).nome = strdup(ancora2);
 																				simbolo *ancoraSimb = ProcurarTabela((yyvsp[-7].text));
+																				Pop(pilhaEscopo);
+																				realEscopo = Top(pilhaEscopo)->valor;
 																				if(ancoraSimb != NULL){
-																					(*ancora).refereTabela = ancoraSimb;
-																					(*ancoraSimb).tipo = FUNC_TABLE;
+																					printf("ERRO SEMANTICO! ID %s REDECLARADO COMO FUNCAO! LINHA: %d, COLUNA: %d \n",(yyvsp[-7].text),linhaCount,colunaCount);
 																				}
 																				else{
-																					(*ancora).refereTabela = CriarSimbolo((yyvsp[-7].text),FUNC_TABLE,NULL,escopoCounter);
+																					(*ancora).refereTabela = CriarSimboloFuncao((yyvsp[-7].text),FUNC_TABLE,NULL,realEscopo,tipoRetorno);
 																				}
 																				(*ancora).valor = strdup((yyvsp[-7].text));
 																				free((yyvsp[-7].text));
-																				(*ancora).filhos[2] = (yyvsp[-1].node);
 																				(*ancora).conversion = None;
 																				(*ancora).tipoVirtual = 0;
-																				(yyvsp[0].text) = NULL;
-																				Pop(pilhaEscopo);
 																				(yyval.node) = ancora;
 																			}
-#line 4244 "test.tab.c"
+#line 4338 "test.tab.c"
     break;
 
-  case 90: /* assignment: ID ASSIGN mathop  */
-#line 1900 "test.y"
+  case 86: /* assignment: ID ASSIGN mathop  */
+#line 2044 "test.y"
                                                                                                                                         {
 																				no* ancora = (no*)malloc(sizeof(no));
 																				(*ancora).numFilhos = 1;
@@ -4267,11 +4361,11 @@ yyreduce:
 																				(yyvsp[-1].text) = NULL;
 																				(yyval.node) = ancora;
 																			}
-#line 4271 "test.tab.c"
+#line 4365 "test.tab.c"
     break;
 
-  case 91: /* variable_declaration: type ID  */
-#line 1925 "test.y"
+  case 87: /* variable_declaration: type ID  */
+#line 2069 "test.y"
                                                                                                                                         {
 																			no* ancora = (no*)malloc(sizeof(no));
 																			(*ancora).numFilhos = 1;
@@ -4279,10 +4373,9 @@ yyreduce:
 																			(*ancora).tipo = YYSYMBOL_variable_declaration;
 																			char ancora2[] = "variable_declaration";
 																			(*ancora).nome = strdup(ancora2);
-																			simbolo *ancoraSimb = ProcurarTabela((yyvsp[0].text));
+																			simbolo *ancoraSimb = ProcurarTabelaEscopo((yyvsp[0].text));
 																			if(ancoraSimb != NULL){
-																				(*ancora).refereTabela = ancoraSimb;
-																				(*ancoraSimb).tipo = atoi(((no*)(yyvsp[-1].node))->valor);
+																				printf("ERRO SEMANTICO! VARIAVEL %s REDECLARADA! LINHA: %d, COLUNA: %d\n",(yyvsp[0].text),linhaCount,colunaCount);
 																			}
 																			else{
 																				(*ancora).refereTabela = CriarSimbolo((yyvsp[0].text),atoi(((no*)(yyvsp[-1].node))->valor),NULL,escopoCounter);
@@ -4293,11 +4386,11 @@ yyreduce:
 																			free((yyvsp[0].text));
 																			(yyval.node) = ancora;
 																		}
-#line 4297 "test.tab.c"
+#line 4390 "test.tab.c"
     break;
 
-  case 92: /* variable_declaration: type error  */
-#line 1946 "test.y"
+  case 88: /* variable_declaration: type error  */
+#line 2089 "test.y"
                                                                                                                                                 {
 																			no* ancora = (no*)malloc(sizeof(no));
 																			(*ancora).numFilhos = 1;
@@ -4312,11 +4405,11 @@ yyreduce:
 																			(yyval.node) = ancora;
 																			yyerrok;
 																		}
-#line 4316 "test.tab.c"
+#line 4409 "test.tab.c"
     break;
 
-  case 93: /* mathop: mathop PLUS mathop1  */
-#line 1967 "test.y"
+  case 89: /* mathop: mathop PLUS mathop1  */
+#line 2110 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4327,16 +4420,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+										(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4336 "test.tab.c"
+#line 4429 "test.tab.c"
     break;
 
-  case 94: /* mathop: mathop MINUS mathop1  */
-#line 1982 "test.y"
+  case 90: /* mathop: mathop MINUS mathop1  */
+#line 2125 "test.y"
                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4347,16 +4440,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+										(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4356 "test.tab.c"
+#line 4449 "test.tab.c"
     break;
 
-  case 95: /* mathop: mathop1  */
-#line 1997 "test.y"
+  case 91: /* mathop: mathop1  */
+#line 2140 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4367,14 +4460,14 @@ yyreduce:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 										(yyval.node) = ancora;
 									}
-#line 4374 "test.tab.c"
+#line 4467 "test.tab.c"
     break;
 
-  case 96: /* mathop1: mathop1 AST mathop2  */
-#line 2013 "test.y"
+  case 92: /* mathop1: mathop1 AST mathop2  */
+#line 2156 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4385,16 +4478,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+										(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4394 "test.tab.c"
+#line 4487 "test.tab.c"
     break;
 
-  case 97: /* mathop1: mathop1 BS mathop2  */
-#line 2028 "test.y"
+  case 93: /* mathop1: mathop1 BS mathop2  */
+#line 2171 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 2;
@@ -4405,16 +4498,16 @@ yyreduce:
 										(*ancora).tipo = YYSYMBOL_mathop1;
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
-										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = DecideTipo(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual);
+										(*ancora).conversion = DecideConversao(((yyvsp[-2].node))->tipoVirtual,((yyvsp[0].node))->tipoVirtual,(*ancora).tipoVirtual);
 										(yyval.node) = ancora;
 										(yyvsp[-1].text) = NULL;
 									}
-#line 4414 "test.tab.c"
+#line 4507 "test.tab.c"
     break;
 
-  case 98: /* mathop1: mathop2  */
-#line 2043 "test.y"
+  case 94: /* mathop1: mathop2  */
+#line 2186 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4425,14 +4518,14 @@ yyreduce:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 										(yyval.node) = ancora;
 									}
-#line 4432 "test.tab.c"
+#line 4525 "test.tab.c"
     break;
 
-  case 99: /* mathop2: matharg  */
-#line 2060 "test.y"
+  case 95: /* mathop2: matharg  */
+#line 2203 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4443,14 +4536,14 @@ yyreduce:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 										(yyval.node) = ancora;
 									}
-#line 4450 "test.tab.c"
+#line 4543 "test.tab.c"
     break;
 
-  case 100: /* mathop2: OPENPAR mathop CLOSEPAR  */
-#line 2073 "test.y"
+  case 96: /* mathop2: OPENPAR mathop CLOSEPAR  */
+#line 2216 "test.y"
                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4461,16 +4554,16 @@ yyreduce:
 										(*ancora).refereTabela = NULL;
 										(*ancora).valor = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ((yyvsp[-1].node))->tipoVirtual;
 										(yyval.node) = ancora;
 										(yyvsp[-2].text) = NULL;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4470 "test.tab.c"
+#line 4563 "test.tab.c"
     break;
 
-  case 101: /* matharg: ID  */
-#line 2091 "test.y"
+  case 97: /* matharg: ID  */
+#line 2234 "test.y"
                                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4487,33 +4580,33 @@ yyreduce:
 										}
 										(*ancora).valor = strdup((yyvsp[0].text));
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ConverteTableTipo((*ancoraSimb).tipo);
 										free((yyvsp[0].text));
 										(yyval.node) = ancora;																
 									}
-#line 4495 "test.tab.c"
+#line 4588 "test.tab.c"
     break;
 
-  case 102: /* matharg: NUM  */
-#line 2112 "test.y"
+  case 98: /* matharg: num  */
+#line 2255 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
-										(*ancora).numFilhos = 0;
+										(*ancora).numFilhos = 1;
+										(*ancora).filhos[0] = (yyvsp[0].node);
 										(*ancora).tipo = YYSYMBOL_matharg;
-										char ancora2[] = "NUM";
+										char ancora2[] = "num";
 										(*ancora).nome = strdup(ancora2);
-										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).valor = strdup((yyvsp[0].node));
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
-										free((yyvsp[0].text));
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 										(yyval.node) = ancora;																
 									}
-#line 4513 "test.tab.c"
+#line 4606 "test.tab.c"
     break;
 
-  case 103: /* matharg: function_call  */
-#line 2125 "test.y"
+  case 99: /* matharg: function_call  */
+#line 2268 "test.y"
                                                         {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 1;
@@ -4524,14 +4617,66 @@ yyreduce:
 										(*ancora).valor = NULL;
 										(*ancora).refereTabela = NULL;
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
 										(yyval.node) = ancora;																
 									}
-#line 4531 "test.tab.c"
+#line 4624 "test.tab.c"
     break;
 
-  case 104: /* type: SET  */
-#line 2141 "test.y"
+  case 100: /* matharg: EMPTY  */
+#line 2282 "test.y"
+                                                                {
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										(*ancora).tipo = YYSYMBOL_matharg;
+										char ancora2[] = "empty";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Set;
+										(yyval.node) = ancora;																
+									}
+#line 4641 "test.tab.c"
+    break;
+
+  case 101: /* function_type: type  */
+#line 2297 "test.y"
+                                                                {
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 1;
+										(*ancora).filhos[0] = (yyvsp[0].node);
+										char ancora2[] = "type";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_function_type;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = ((yyvsp[0].node))->tipoVirtual;
+										(yyval.node) = ancora;
+									}
+#line 4659 "test.tab.c"
+    break;
+
+  case 102: /* function_type: VOID  */
+#line 2311 "test.y"
+                                                                {
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										(*ancora).tipo = YYSYMBOL_function_type;
+										char ancora2[] = "void";
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).refereTabela = NULL;
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Void;
+										(yyval.node) = ancora;																
+									}
+#line 4676 "test.tab.c"
+    break;
+
+  case 103: /* type: SET  */
+#line 2329 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4543,15 +4688,15 @@ yyreduce:
 										sprintf(ancora3,"%d",SET_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Set;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4551 "test.tab.c"
+#line 4696 "test.tab.c"
     break;
 
-  case 105: /* type: INT  */
-#line 2156 "test.y"
+  case 104: /* type: INT  */
+#line 2344 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4563,15 +4708,15 @@ yyreduce:
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Int;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4571 "test.tab.c"
+#line 4716 "test.tab.c"
     break;
 
-  case 106: /* type: ELEM  */
-#line 2171 "test.y"
+  case 105: /* type: ELEM  */
+#line 2359 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4583,15 +4728,15 @@ yyreduce:
 										sprintf(ancora3,"%d",ELEM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Elem;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4591 "test.tab.c"
+#line 4736 "test.tab.c"
     break;
 
-  case 107: /* type: FLOAT  */
-#line 2186 "test.y"
+  case 106: /* type: FLOAT  */
+#line 2374 "test.y"
                                                                 {
 										no* ancora = (no*)malloc(sizeof(no));
 										(*ancora).numFilhos = 0;
@@ -4603,15 +4748,51 @@ yyreduce:
 										sprintf(ancora3,"%d",NUM_TABLE);
 										(*ancora).valor = strdup(ancora3);
 										(*ancora).conversion = None;
-										(*ancora).tipoVirtual = 0;
+										(*ancora).tipoVirtual = Float;
 										(yyval.node) = ancora;
 										(yyvsp[0].text) = NULL;
 									}
-#line 4611 "test.tab.c"
+#line 4756 "test.tab.c"
+    break;
+
+  case 107: /* num: INTEGER  */
+#line 2392 "test.y"
+                                                                {
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										char ancora2[] = "integer"
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_num;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Int;
+										(yyval.node) = ancora;
+										free((yyvsp[0].text));
+									}
+#line 4774 "test.tab.c"
+    break;
+
+  case 108: /* num: FLOATING  */
+#line 2406 "test.y"
+                                                                {
+										no* ancora = (no*)malloc(sizeof(no));
+										(*ancora).numFilhos = 0;
+										char ancora2[] = "floating"
+										(*ancora).nome = strdup(ancora2);
+										(*ancora).tipo = YYSYMBOL_num;
+										(*ancora).refereTabela = NULL;
+										(*ancora).valor = strdup((yyvsp[0].text));
+										(*ancora).conversion = None;
+										(*ancora).tipoVirtual = Float;
+										(yyval.node) = ancora;
+										free((yyvsp[0].text));
+									}
+#line 4792 "test.tab.c"
     break;
 
 
-#line 4615 "test.tab.c"
+#line 4796 "test.tab.c"
 
         default: break;
       }
@@ -4847,7 +5028,7 @@ yyreturn:
   return yyresult;
 }
 
-#line 2203 "test.y"
+#line 2421 "test.y"
 
 /*
 void yyerror(char *s){
@@ -4860,7 +5041,7 @@ void yyerror(char *s){
 */
 
 void yyerror(char const *s){
-	printf("At line %d, column %d: %s\n",linhaCount,colunaCount,s);
+	printf("Linha: %d, Coluna: %d -> %s\n",linhaCount,colunaCount,s);
 
 }
 

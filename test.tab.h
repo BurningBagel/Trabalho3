@@ -54,52 +54,55 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    NUM = 258,                     /* NUM  */
-    STRING = 259,                  /* STRING  */
-    CHAR = 260,                    /* CHAR  */
-    ID = 261,                      /* ID  */
-    INT = 262,                     /* INT  */
-    FLOAT = 263,                   /* FLOAT  */
-    ELEM = 264,                    /* ELEM  */
-    SET = 265,                     /* SET  */
-    IF = 266,                      /* IF  */
-    ELSE = 267,                    /* ELSE  */
-    FOR = 268,                     /* FOR  */
-    READ = 269,                    /* READ  */
-    WRITE = 270,                   /* WRITE  */
-    WRITELN = 271,                 /* WRITELN  */
-    IN = 272,                      /* IN  */
-    IS_SET = 273,                  /* IS_SET  */
-    ADD = 274,                     /* ADD  */
-    REMOVE = 275,                  /* REMOVE  */
-    EXISTS = 276,                  /* EXISTS  */
-    FORALL = 277,                  /* FORALL  */
-    RETURN = 278,                  /* RETURN  */
-    OPENPAR = 279,                 /* OPENPAR  */
-    CLOSEPAR = 280,                /* CLOSEPAR  */
-    OPENCURLY = 281,               /* OPENCURLY  */
-    CLOSECURLY = 282,              /* CLOSECURLY  */
-    OPENBRAC = 283,                /* OPENBRAC  */
-    CLOSEBRAC = 284,               /* CLOSEBRAC  */
-    LESS = 285,                    /* LESS  */
-    LE = 286,                      /* LE  */
-    EQ = 287,                      /* EQ  */
-    NEQ = 288,                     /* NEQ  */
-    GREATER = 289,                 /* GREATER  */
-    GE = 290,                      /* GE  */
-    PLUS = 291,                    /* PLUS  */
-    MINUS = 292,                   /* MINUS  */
-    DBS = 293,                     /* DBS  */
-    AST = 294,                     /* AST  */
-    BS = 295,                      /* BS  */
-    ASSIGN = 296,                  /* ASSIGN  */
-    COMMA = 297,                   /* COMMA  */
-    SEMICOLON = 298,               /* SEMICOLON  */
-    OR = 299,                      /* OR  */
-    AND = 300,                     /* AND  */
-    NOT = 301,                     /* NOT  */
-    AMP = 302,                     /* AMP  */
-    PCENT = 303                    /* PCENT  */
+    INTEGER = 258,                 /* INTEGER  */
+    FLOATING = 259,                /* FLOATING  */
+    STRING = 260,                  /* STRING  */
+    EMPTY = 261,                   /* EMPTY  */
+    CHAR = 262,                    /* CHAR  */
+    ID = 263,                      /* ID  */
+    INT = 264,                     /* INT  */
+    FLOAT = 265,                   /* FLOAT  */
+    ELEM = 266,                    /* ELEM  */
+    SET = 267,                     /* SET  */
+    IF = 268,                      /* IF  */
+    ELSE = 269,                    /* ELSE  */
+    FOR = 270,                     /* FOR  */
+    READ = 271,                    /* READ  */
+    WRITE = 272,                   /* WRITE  */
+    WRITELN = 273,                 /* WRITELN  */
+    IN = 274,                      /* IN  */
+    IS_SET = 275,                  /* IS_SET  */
+    ADD = 276,                     /* ADD  */
+    REMOVE = 277,                  /* REMOVE  */
+    EXISTS = 278,                  /* EXISTS  */
+    FORALL = 279,                  /* FORALL  */
+    RETURN = 280,                  /* RETURN  */
+    OPENPAR = 281,                 /* OPENPAR  */
+    CLOSEPAR = 282,                /* CLOSEPAR  */
+    OPENCURLY = 283,               /* OPENCURLY  */
+    CLOSECURLY = 284,              /* CLOSECURLY  */
+    OPENBRAC = 285,                /* OPENBRAC  */
+    CLOSEBRAC = 286,               /* CLOSEBRAC  */
+    LESS = 287,                    /* LESS  */
+    LE = 288,                      /* LE  */
+    EQ = 289,                      /* EQ  */
+    NEQ = 290,                     /* NEQ  */
+    GREATER = 291,                 /* GREATER  */
+    GE = 292,                      /* GE  */
+    PLUS = 293,                    /* PLUS  */
+    MINUS = 294,                   /* MINUS  */
+    DBS = 295,                     /* DBS  */
+    AST = 296,                     /* AST  */
+    BS = 297,                      /* BS  */
+    ASSIGN = 298,                  /* ASSIGN  */
+    COMMA = 299,                   /* COMMA  */
+    SEMICOLON = 300,               /* SEMICOLON  */
+    OR = 301,                      /* OR  */
+    AND = 302,                     /* AND  */
+    NOT = 303,                     /* NOT  */
+    AMP = 304,                     /* AMP  */
+    PCENT = 305,                   /* PCENT  */
+    VOID = 306                     /* VOID  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -108,14 +111,14 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 240 "test.y"
+#line 380 "test.y"
 
 	double val;	
 	char *text;
 	//bool boolean;
 	struct no *node;
 
-#line 119 "test.tab.h"
+#line 122 "test.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
