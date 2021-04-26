@@ -22,12 +22,6 @@ int yylex(void);
 #define ELEM_TABLE 7
 #define SET_TABLE 8
 
-/*
-TODO
-	
-	2- Implementar conversão de tipos
-	3- Implementar acuso de erro devido a uso de tipo errado
-*/
 
 
 simbolo* tabelaSimbolos;
@@ -98,7 +92,7 @@ int ConverteTableTipo(int tipo){
 	return 0;
 }
 
-int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma função para decidir se vamos fazer uma conversão de tipos.
+int DecideConversao(int tipo1, int tipo2, int tipoAlvo){//Precisamos de uma função para decidir se vamos fazer uma conversão de tipos, dados 2 tipos de entrada.
 	if((tipo1 == tipo2) && (tipo2 == tipoAlvo)){
 		return None;
 	}
@@ -1518,7 +1512,7 @@ conjuntoop:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													$$ = ancora;
 												}
 	|	tipagem									{
@@ -1531,7 +1525,7 @@ conjuntoop:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													$$ = ancora;
 												}
 	|	inclusao								{
@@ -1544,7 +1538,7 @@ conjuntoop:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	|	remocao									{
@@ -1557,7 +1551,7 @@ conjuntoop:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	|	selecao									{
@@ -1570,7 +1564,7 @@ conjuntoop:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	;
@@ -1586,7 +1580,7 @@ conjuntoop1:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													$$ = ancora;
 												}
 	|	tipagem									{
@@ -1599,7 +1593,7 @@ conjuntoop1:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = ($1)->tipoVirtual;
 													$$ = ancora;
 												}
 	|	inclusao								{
@@ -1612,7 +1606,7 @@ conjuntoop1:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	|	remocao									{
@@ -1625,7 +1619,7 @@ conjuntoop1:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	|	selecao									{
@@ -1638,7 +1632,7 @@ conjuntoop1:
 													(*ancora).refereTabela = NULL;
 													(*ancora).valor = NULL;
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = Untyped;
 													$$ = ancora;
 												}
 	|	ID 										{
@@ -1657,7 +1651,7 @@ conjuntoop1:
 													}
 													(*ancora).valor = strdup($1);
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = 0;
+													(*ancora).tipoVirtual = (*ancoraSimb)->tipo;
 													free($1);
 													$$ = ancora;
 												}
@@ -2130,14 +2124,32 @@ assignment:
 																				simbolo *ancoraSimb = VerificarEscopo($1);
 																				if(ancoraSimb != NULL){ 
 																					(*ancora).refereTabela = ancoraSimb;
+																					(*ancora).tipoVirtual = ConverteTableTipo((*ancoraSimb).tipo);
+																					if(($3)->tipoVirtual == (*ancora).tipoVirtual){
+																						(*ancora).conversion = None;
+																					}
+																					else if(($3)->tipoVirtual == Float && (*ancora).tipoVirtual == Int){
+																						(*ancora).conversion = FloatToIntLeft;
+																					}
+																					else if(($3)->tipoVirtual == Int && (*ancora).tipoVirtual == Float){
+																						(*ancora).conversion = IntToFloatLeft;
+																					}
+																					else if((*ancora).tipoVirtual == Elem){
+																						(*ancora).conversion = DecideConversao(Elem,($3)->tipoVirtual,($3)->tipoVirtual);
+																					}
+																					else{
+																						printf("ERRO SEMANTICO! NAO HA COMO CONVERTER ESTA EXPRESSAO PARA O ID %s! Linha: %d, Coluna: %d\n",$1,linhaCount,colunaCount);
+																						(*ancora).conversion = None;
+																						(*ancora).tipoVirtual = 0;
+																					}
 																				}
 																				else{
 																					printf("ERRO SEMANTICO! ID %s USADO FORA DE ESCOPO!\n",$1);
 																					(*ancora).refereTabela = NULL;
+																					(*ancora).conversion = None;
+																					(*ancora).tipoVirtual = 0;
 																				}
 																				(*ancora).valor = strdup($1);
-																				(*ancora).conversion = None;
-																				(*ancora).tipoVirtual = 0;
 																				free($1);
 																				$2 = NULL;
 																				$$ = ancora;
