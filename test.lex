@@ -40,10 +40,9 @@ ws			{delim}+
 letter			[a-zA-Z]
 digit			[0-9]
 id			{letter}({letter}|{digit}|"_")*
-integer			-?{digit}+
+integer		-?{digit}+
 floating		-?{digit}+\.{digit}+
-stringguts  		(.ws)+
-string			"{stringguts}"
+string			\"(\\.|[^"\\])*\"
 char			'[^\r\n]'
 negacao 		!
 enderecamento 		&
