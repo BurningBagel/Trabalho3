@@ -1651,7 +1651,7 @@ conjuntoop1:
 													}
 													(*ancora).valor = strdup($1);
 													(*ancora).conversion = None;
-													(*ancora).tipoVirtual = (*ancoraSimb)->tipo;
+													(*ancora).tipoVirtual = (*ancoraSimb).tipo;
 													free($1);
 													$$ = ancora;
 												}
